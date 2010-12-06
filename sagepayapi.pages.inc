@@ -67,7 +67,7 @@ function sagepayapi_admin_settings() {
       'GBP' => 'GBP',
       'USD' => 'USD',
       'EUR' => 'EUR',
-      'AUS' => 'AUS',
+      'AUD' => 'AUD',
     ),
   );
 
@@ -192,7 +192,7 @@ function sagepayapi_form_order_form($form_state) {
         $order['Amount'] = '65';
         $currency_symbol = "&#8364;"; // €
         break;
-      case 'AUS':
+      case 'AUD':
         $order['Amount'] = '100';
         $currency_symbol = "$";
     }
@@ -286,7 +286,7 @@ function sagepayapi_form_order_form($form_state) {
     return $form;
   }
 
-  // @todo application fee (submitted with application by user through bounce from app form after submit): 50GBP, US$75 €65, AUS$100
+  // @todo application fee (submitted with application by user through bounce from app form after submit): 50GBP, US$75 €65, AUD$100
 
   $form['BillingFirstnames'] = array(
     '#type' => 'textfield',

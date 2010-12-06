@@ -11,7 +11,7 @@
  * Step 8: Sage Pay redirects customer back to site, check status fields
  *
  * @todo
- *   deposit fee (submitted by user through hidden link provided by salesperson after working with applicant): 500GBP, US$750, €625, $AUS$1000
+ *   deposit fee (submitted by user through hidden link provided by salesperson after working with applicant): 500GBP, US$750, €625, AUD$1000
  *   program balance payoff (submitted by either user via hidden link provided by salesperson after working with applicant): variable
  */
 

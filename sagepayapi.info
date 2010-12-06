@@ -3,4 +3,4 @@ description = Plug anything into Sagepay
 package = Webthingee
 php = 5.0
 core = 6.x
-version = 6.x-1.0-beta1
+version = 6.x-1.0-beta2
