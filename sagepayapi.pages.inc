@@ -20,7 +20,7 @@ function sagepayapi_admin_settings() {
     '#type' => 'radios',
     '#title' => t('Sagepay Form URL'),
     '#description' => t('Select the Sagepay Form server to use. Be CAREFUL with this!'),
-    '#default_value' => variable_get('sagepayapi_form_url', 'SAGEPAYAPI_FORM_SIMULATOR_URL'),
+    '#default_value' => variable_get('sagepayapi_form_url', SAGEPAYAPI_FORM_SIMULATOR_URL),
     '#options' => array(
       'SAGEPAYAPI_FORM_SIMULATOR_URL' => t("Simulator"),
       'SAGEPAYAPI_FORM_TEST_URL' => t("Test"),
@@ -303,9 +303,6 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     // need to add vendortxcode, amount, successurl, failureurl
     $order['VendorTxCode'] = $vendortxcode;
 
-    // Create encrypted post string
-    $crypt = sagepayapi_form_get_crypt_string($order);
-
     // Specify the required Sage Pay Form url to which this form gets submitted
     switch (variable_get('sagepayapi_form_url', '')) {
       case 'SAGEPAYAPI_FORM_LIVE_URL':
@@ -460,6 +457,12 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
 function sagepayapi_form_order_form_validate($form, &$form_state) {
   if ($form_state['clicked_button']['#id'] == 'edit-next') {
     // @todo validate useramount
+    // /^(\d{1,3}+((\,\d{3})*|(\.\d{3})*)|(\d+))(\.\d{2}|\,\d{2})?$/
+    // $pattern = '';
+    // $user_amount = trim(check_plain($form_state['values']['UserAmount']));
+    //if (!empty($user_amount) && !is_numeric($user_amount) && !preg_match($pattern, $user_amount)) {
+      //form_set_error('UserAmount', t('Amount must be a valid number format with only a decimal or a comma.'));
+    //}
   }
 }
 
@@ -483,8 +486,8 @@ function sagepayapi_form_transaction_status() {
   $returnvalue = _sagepayapi_simpleXor(_sagepayapi_base64_decode($_GET['crypt']), variable_get('sagepayapi_encrypted_pass', ''));
   $tokens = _sagepayapi_get_tokens($returnvalue);
 
-  // Log to watchdog
-  watchdog('sagepayapi', 'Receiving notification. Return value: !raw', array('!raw' => check_plain($returnvalue)));
+  // Log to watchdog @todo make this optional
+  watchdog('sagepayapi', 'Sage Pay Form Receiving notification. Return value: !raw', array('!raw' => check_plain($returnvalue)), WATCHDOG_INFO);
 
   $status = check_plain($tokens['Status']);
   $vendortxcode = check_plain($tokens['VendorTxCode']);
@@ -502,12 +505,12 @@ function sagepayapi_form_transaction_status() {
       sagepayapi_form_status_goto(FALSE);
       break;
     case 'MALFORMED' : // Transaction not completed; can be retried.
-      watchdog('sagepayapi', 'MALFORMED error from Protx for order !order_id.', array('!order_id' => $order_protx->order_id));
+      watchdog('sagepayapi', 'MALFORMED error from Protx for order !order_id.', array('!order_id' => $order_protx->order_id), WATCHDOG_WARNING);
       drupal_set_message(t('A system error occurred: Malformed post data.  This error has been logged and will be investigated.  Please contact us to confirm the status of your order'), 'warning');
       sagepayapi_form_status_goto(FALSE);
       break;
     case 'INVALID' : // Transaction not completed; can be retried.
-      watchdog('sagepayapi', 'INVALID error from Protx for order !order_id.', array('!order_id' => $order_protx->order_id));
+      watchdog('sagepayapi', 'INVALID error from Protx for order !order_id.', array('!order_id' => $order_protx->order_id), WATCHDOG_WARNING);
       drupal_set_message(t('A system error occurred: Invalid data in post.  This error has been logged and will be investigated.  Please contact us to confirm the status of your order'), 'warning');
       sagepayapi_form_status_goto(FALSE);
       break;
@@ -522,12 +525,12 @@ function sagepayapi_form_transaction_status() {
       sagepayapi_form_status_goto(FALSE);
       break;
     case 'AUTHENTICATED': // Only used with AUTHENTICATE TxType
-      watchdog('sagepayapi', 'Transaction was AUTHENTICATED. Vendor TX Code: !vendortxcode VPSTxId: !VPSTxId', array('!vendortxcode' => $vendortxcode, '!VPSTxId' => $vps_tx_id));
+      watchdog('sagepayapi', 'Transaction was AUTHENTICATED. Vendor TX Code: !vendortxcode VPSTxId: !VPSTxId', array('!vendortxcode' => $vendortxcode, '!VPSTxId' => $vps_tx_id), WATCHDOG_INFO);
       drupal_set_message(t('Your payment information has been authenticated with Sage Pay.'));
       sagepayapi_form_status_goto(TRUE);
       break;
     case 'REGISTERED': // Only used with AUTHENTICATE TxType
-      watchdog('sagepayapi', 'Transaction was REGISTERED. Vendor TX Code: !vendortxcode VPSTxId: !VPSTxId', array('!vendortxcode' => $vendortxcode, '!VPSTxId' => $vps_tx_id));
+      watchdog('sagepayapi', 'Transaction was REGISTERED. Vendor TX Code: !vendortxcode VPSTxId: !VPSTxId', array('!vendortxcode' => $vendortxcode, '!VPSTxId' => $vps_tx_id), WATCHDOG_INFO);
       drupal_set_message(t('Your payment information has been registered with Sage Pay.'));
       sagepayapi_form_status_goto(TRUE);
       break;

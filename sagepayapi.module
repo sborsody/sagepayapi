@@ -20,9 +20,14 @@ define(SAGEPAYAPI_FORM_SIMULATOR_URL, 'https://test.sagepay.com/simulator/vspfor
 define(SAGEPAYAPI_FORM_TEST_URL, 'https://test.sagepay.com/gateway/service/vspform-register.vsp');
 define(SAGEPAYAPI_FORM_LIVE_URL, 'https://live.sagepay.com/gateway/service/vspform-register.vsp');
 
-if (!empty(variable_get('sagepayapi_debug', ''))) {
+$debug = variable_get('sagepayapi_debug', '');
+if (!empty($debug)) {
   define(SAGEPAYAPI_DEBUG, TRUE);
 }
+else {
+  define(SAGEPAYAPI_DEBUG, FALSE);
+}
+
 
 /**
  * Implements hook_perm
@@ -174,9 +179,7 @@ function sagepayapi_dummy_order() {
  */
 function sagepayapi_form_get_crypt_string($data) {
   $strencryptionpassword = variable_get('sagepayapi_encrypted_pass', '');
-  if (!strencryptionpassword) {
-    drupal_set_message(t('Sage Pay API: Double check the XOR encryption password on the sagepayapi settings page.'), 'error');
-  }
+
   // http_build_query is not useful here because we don't need the strings urlencoded for Sage Pay Form.
   // $strPost = http_build_query($data, NULL, '&');
   // So instead we'll build the query string manually without urlencoding and encrypt and base64 encode it.
@@ -188,8 +191,8 @@ function sagepayapi_form_get_crypt_string($data) {
   $strPost = substr($strPost, 0, -1);
 
   // If debugging is turned on, send unencrypted string to watchdog
-  if (defined(SAGEPAYAPI_DEBUG)) {
-    watchdog('sagepayapi','Unencoded transaction registration string !strpost', array('!strpost' => $strPost) , WATCHDOG_DEBUG);
+  if (SAGEPAYAPI_DEBUG) {
+    watchdog('sagepayapi','Sage Pay Form Transaction Registration string !strpost', array('!strpost' => $strPost) , WATCHDOG_DEBUG);
   }
   // Now encrypt it with our XOR password and encode it
   $strCrypt = _sagepayapi_base64_encode(_sagepayapi_simpleXor($strPost, $strencryptionpassword));
