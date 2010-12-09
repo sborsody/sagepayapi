@@ -11,7 +11,9 @@
 
 /**
  * Administrative settings form
- * @todo why does this form go to a blank page after submission?
+ *
+ * @return
+ *   An array containing FAPI data
  */
 function sagepayapi_admin_settings() {
   $form['sagepayapi_form_url'] = array(
@@ -39,8 +41,6 @@ function sagepayapi_admin_settings() {
     '#type' => 'password',
     '#title' => t('XOR Encryption Password'),
     '#description' => t('This is the XOR encrypted password supplied by Sagepay'),
-    //'#default_value' => variable_get('sagepayapi_encrypted_pass', ''),
-    //'#required' => TRUE,
   );
 
   $form['sagepayapi_success_page'] = array(
@@ -56,6 +56,8 @@ function sagepayapi_admin_settings() {
     '#description' => t('This should be a Drupal path.'),
     '#default_value' => variable_get('sagepayapi_failure_page', ''),
   );
+
+  // @todo make $currencies = _sagepayapi_get_iso4217();
 
   $form['sagepayapi_currencies'] = array(
     '#type' => 'select',
@@ -74,7 +76,7 @@ function sagepayapi_admin_settings() {
   $form['sagepayapi_transaction_type'] = array(
     '#type' => 'radios',
     '#title' => t('Transaction Type'),
-    '#description' => t('Depends upon what your Sage Pay account supports.'),
+    '#description' => t('Depends upon what your Sage Pay account supports. (Deferred and authenticate are not supported at this time)'),
     '#default_value' => variable_get('sagepayapi_transaction_type', 'PAYMENT'),
     '#options' => array(
       'PAYMENT' => t("PAYMENT"),
@@ -115,14 +117,34 @@ function sagepayapi_admin_settings() {
     '#default_value' => variable_get('sagepayapi_partner_id', ''),
   );
 
+  $form['sagepayapi_optional_settings']['sagepayapi_debug'] = array(
+    '#type' => 'checkbox',
+    '#title' => t('Watchdog debugging'),
+    '#description' => t("Check this in order to send debugging information to Drupal's watchdog"),
+    '#default_value' => variable_get('sagepayapi_debug', ''),
+  );
+
+  $form['sagepayapi_optional_settings']['sagepayapi_form_submit_string'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Sage Pay Form submit button text'),
+    '#description' => t('The text to display on the Sage Pay Form submit button'),
+    '#default_value' => variable_get('sagepayapi_form_submit_string', t('Pay Now')),
+  );
+
   $form['#validate'][] = 'sagepayapi_admin_settings_validate';
   return system_settings_form($form);
 }
 
 /**
- * Validate the administrative settings form
+ * Validation callback for the administrative settings form
+ *
+ * @param
+ *   $form
+ *   &$form_state
+ *
  */
 function sagepayapi_admin_settings_validate($form, &$form_state) {
+  // @todo refactor this check for both success and failure pages
   if ($form_state['values']['sagepayapi_success_page']) {
     $path = trim(check_plain($form_state['values']['sagepayapi_success_page']));
     $ex = menu_get_item(drupal_get_normal_path($path));
@@ -130,6 +152,8 @@ function sagepayapi_admin_settings_validate($form, &$form_state) {
       form_set_error('sagepayapi_success_page', t('Success page is not a valid Drupal path.'));
     }
   }
+
+  // Ensure that this is a valid path
   if ($form_state['values']['sagepayapi_failure_page']) {
     $path = trim(check_plain($form_state['values']['sagepayapi_failure_page']));
     $ex = menu_get_item(drupal_get_normal_path($path));
@@ -137,16 +161,84 @@ function sagepayapi_admin_settings_validate($form, &$form_state) {
       form_set_error('sagepayapi_failure_page', t('Failure page is not a valid Drupal path.'));
     }
   }
-  // If the XOR password field is blank, we don't want to overwrite what may already be saved.
+
+  // @todo test the password validation
   if (empty($form_state['values']['sagepayapi_encrypted_pass'])) {
-    unset($form_state['values']['sagepayapi_encrypted_pass']);
+    // If the XOR password field is blank, we don't want to overwrite what may already be saved.
+    if (variable_get('sagepayapi_encrypted_pass', '')) {
+      unset($form_state['values']['sagepayapi_encrypted_pass']);
+    }
+    else {
+      form_set_error('sagepayapi_encrypted_pass', t('Please enter the XOR encryption password provided by Sage Pay.'));
+    }
   }
 }
 
 /**
  * This form is a two-step form
+ *
+ * @param
+ *   $form_state
+ *   $req
  */
-function sagepayapi_form_order_form($form_state) {
+function sagepayapi_form_order_form($form_state, $req = NULL) {
+  // Set up fee schedule
+  $fees = array(
+    'APP' => array(
+      '#name' => t('Internship Application'),
+      '#url' => 'application', // @todo make this a constant?
+      '#amounts' => array(
+        'USD' => 75,
+        'GBP' => 50,
+        'EUR' => 65,
+        'AUD' => 100,
+      ),
+    ),
+    'DEP' => array(
+      '#name' => t('Program Deposit'),
+      '#url' => 'deposit',
+      '#amounts' => array(
+        'USD' => 750,
+        'GBP' => 500,
+        'EUR' => 625,
+        'AUD' => 1000,
+      ),
+    ),
+    'OTH' => array(
+      '#name' => t('Program Balance (Enter amount below)'),
+      '#url' => 'balance',
+      // No amounts because this will be textfield
+    ),
+  );
+  $request = check_plain($req); // This is important! @todo check that someone can't type something funny in the url
+  $allowed_requests = array();
+  $fee_options = array();
+  // Figure out what page argument strings are allowed and what their friendly names are
+  foreach ($fees as $key => $value) {
+    $allowed_requests[$value['#url']] = $key;
+    $fee_options[$key] = $value['#name'];
+  }
+  // Check if the page argument string is allowed
+  $allowed = array_key_exists($request, $allowed_requests);
+  // Set the correct request name
+  if ($allowed) {
+    $description = $fee_options[$allowed_requests[$request]];
+  }
+  // Default to the APP request name
+  else {
+    $description = $fee_options['APP'];
+  }
+
+  $currencies = variable_get('sagepayapi_currencies', array('GBP' => 'GBP'));
+  // @todo this information will come from the iso currency array
+  $currency_symbol = array(
+    'GBP' => "&pound;", // £
+    'EUR' => "&#8364;", // €
+    'USD' => "$",
+    'AUD' => "$",
+  );
+
+  // Page two of this form
   // @todo enhance this for if client just needs page two
   if (isset($form_state['storage']['page_two'])) {
     //$order = sagepayapi_dummy_order();
@@ -154,14 +246,12 @@ function sagepayapi_form_order_form($form_state) {
     // Build order info for Sage Pay
     $billingcountry = check_plain($values['BillingCountry']);
     $billingaddress2 = check_plain($values['BillingAddress2']);
-    
+
     $order = array(
-      'Description' => t('Internship Application'), // @todo make this configurable
-      //'Amount' => '1', // @todo make this configurable from a hidden form field or something?
+      'Description' => $description,
       'Currency' => check_plain($values['Currency']),
       'BillingSurname' => check_plain($values['BillingSurname']),
       'BillingFirstnames' => check_plain($values['BillingFirstnames']),
-      //'CustomerEmail' => "stacey.borsody@yahoo.com",
       'BillingAddress1' => check_plain($values['BillingAddress1']),
       'BillingCity' => check_plain($values['BillingCity']),
       'BillingPostCode' => check_plain($values['BillingPostCode']),
@@ -174,27 +264,20 @@ function sagepayapi_form_order_form($form_state) {
       'DeliveryPostCode' => check_plain($values['BillingPostCode']),
       'DeliveryCountry' => $billingcountry,
     );
-
-    $currency_symbol = '';
     
     // Pick correct amount for application fee based upon selected currency.
-    switch ($order['Currency']) {
-      default:
-      case 'GBP':
-        $order['Amount'] = '50';
-        $currency_symbol = "&pound;"; // £
-        break;
-      case 'USD':
-        $order['Amount'] = '75';
-        $currency_symbol = "$";
-        break;
-      case 'EUR':
-        $order['Amount'] = '65';
-        $currency_symbol = "&#8364;"; // €
-        break;
-      case 'AUD':
-        $order['Amount'] = '100';
-        $currency_symbol = "$";
+    // @todo make this configurable
+    if ($request && $allowed) {
+      if ($request == 'balance') {
+        $order['Amount'] = check_plain($values['UserAmount']);
+      }
+      else {
+        $order['Amount'] = $fees[$allowed_requests[$request]]['#amounts'][$order['Currency']];
+      }
+    }
+    // Default to APP
+    else {
+        $order['Amount'] = $fees['APP']['#amounts'][$order['Currency']];
     }
     
     // Only set State if country is US
@@ -211,8 +294,7 @@ function sagepayapi_form_order_form($form_state) {
     // Generate vendor tx code
     $vendortxcode = sagepayapi_get_vendortxcode();
 
-    // Build a success url
-    // Build a failure url
+    // Build a success and failure url
     $returnurl = url('sagepayapi/thankyou', array('absolute' => TRUE));
     $order['SuccessURL'] = $returnurl;
     $order['FailureURL'] = $returnurl;
@@ -224,23 +306,22 @@ function sagepayapi_form_order_form($form_state) {
     // Create encrypted post string
     $crypt = sagepayapi_form_get_crypt_string($order);
 
-    // Specify to which sagepay url this form should be submitted
+    // Specify the required Sage Pay Form url to which this form gets submitted
     switch (variable_get('sagepayapi_form_url', '')) {
-      case 'SAGEPAYAPI_FORM_SIMULATOR_URL':
-        $form['#action'] = SAGEPAYAPI_FORM_SIMULATOR_URL;
+      case 'SAGEPAYAPI_FORM_LIVE_URL':
+        $form['#action'] = SAGEPAYAPI_FORM_LIVE_URL;
         break;
       case 'SAGEPAYAPI_FORM_TEST_URL':
         $form['#action'] = SAGEPAYAPI_FORM_TEST_URL;
         break;
-      case 'SAGEPAYAPI_FORM_LIVE_URL':
-        $form['#action'] = SAGEPAYAPI_FORM_LIVE_URL;
-        break;
+      case 'SAGEPAYAPI_FORM_SIMULATOR_URL':
       default:
         $form['#action'] = SAGEPAYAPI_FORM_SIMULATOR_URL;
         break;
     }
 
     // Provide feedback on what the order is.  This gets themed.
+    // @todo make the display of this feedback optional for carts that don't need it
     $form['review'] = array(
       '#type' => 'fieldset',
       '#title' => t('Order Review'),
@@ -259,9 +340,9 @@ function sagepayapi_form_order_form($form_state) {
     if ($billingstate) {
       $form['review']['state'] = array('#title' => t('State'), '#value' => $billingstate);
     }
-    $form['review']['basket'] = array('#title' => t('Application Fee'), '#value' => $order['Currency'] . " $currency_symbol" . $order['Amount']);
+    $form['review']['basket'] = array('#title' => $description, '#value' => $order['Currency'] . " " . $currency_symbol[$order['Currency']] . $order['Amount']);
 
-    // Create four hidden form fields
+    // Create the four hidden form fields required by Sage Pay Form
     $hidden_fields = array(
       'VPSProtocol' => sagepayapi_protocol_version(),
       'TxType' => variable_get('sagepayapi_transaction_type', 'PAYMENT'),
@@ -277,17 +358,16 @@ function sagepayapi_form_order_form($form_state) {
     // Create submit button
     $form['submit'] = array(
       '#type' => 'submit',
-      '#value' => t('Pay Now'), // @todo make this configurable
+      '#value' => variable_get('sagepayapi_form_submit_string', t('Pay Now')),
     );
 
-    // @todo we should probably unset the saved values from page one here
+    // @todo we should probably unset the saved values from page one here. does this do anything?
     unset($form_state['storage']['page_two']);
     unset($form_state['storage']['page_one_values']);
     return $form;
   }
 
-  // @todo application fee (submitted with application by user through bounce from app form after submit): 50GBP, US$75 €65, AUD$100
-
+  // Page one of this form
   $form['BillingFirstnames'] = array(
     '#type' => 'textfield',
     '#title' => t('First name'),
@@ -335,17 +415,36 @@ function sagepayapi_form_order_form($form_state) {
     '#default_value' => 'GB',
     '#options' => _sagepayapi_get_countries(),
   );
-  $form['billing']['Currency'] = array(
-    '#type' => 'select',
-    '#title' => t('Currancy'),
-    '#required' => TRUE,
-    '#options' => variable_get('sagepayapi_currencies', array('GBP' => 'GBP')), // @todo detect default from billing country?
-  );
-  $form['BillingPhone'] = array(
+  $form['billing']['BillingPhone'] = array(
     '#type' => 'textfield',
     '#title' => t('Phone number'),
     '#required' => TRUE,
   );
+  
+  $form['order'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Fee information'),
+  );
+
+  $form['order']['Currency'] = array(
+    '#type' => 'select',
+    '#title' => t('Currency'),
+    '#required' => TRUE,
+    '#options' => $currencies, // @todo detect default from billing country?
+  );
+
+  // Default to default description
+  $form['order']['Description'] = array(
+    '#value' => $description,
+  );
+  // Show the amount textfield for balance payoff requests
+  if (isset($request) && $request == 'balance') { // @todo replace with constant
+    $form['order']['UserAmount'] = array(
+      '#type' => 'textfield',
+      '#title' => t('Enter amount'),
+      '#description' => t('Optional: Please enter the amount if you are paying off your program balance.'),
+    );
+  }
 
   $form['next'] = array(
     '#type' => 'submit',
@@ -359,6 +458,9 @@ function sagepayapi_form_order_form($form_state) {
  * Validates data in billing order form
  */
 function sagepayapi_form_order_form_validate($form, &$form_state) {
+  if ($form_state['clicked_button']['#id'] == 'edit-next') {
+    // @todo validate useramount
+  }
 }
 
 /**
