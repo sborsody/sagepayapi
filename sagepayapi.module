@@ -488,7 +488,7 @@ function _sagepayapi_get_currencies() {
  * @return
  *   Returns an array of information about a single currency
  */
-function _sagepayapi_get_single_currency($cur = NULL) {
+function _sagepayapi_get_currency($cur = NULL) {
   if ($cur) {
     $arr = _sagepayapi_get_currencies();
     return $arr[$cur];

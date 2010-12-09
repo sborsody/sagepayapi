@@ -57,20 +57,19 @@ function sagepayapi_admin_settings() {
     '#default_value' => variable_get('sagepayapi_failure_page', ''),
   );
 
-  // @todo make $currencies = _sagepayapi_get_iso4217();
+  // Get currencies
+  $currencies = _sagepayapi_get_currencies();
+  foreach ($currencies as $key => $value) {
+    $cur_options[$key] = $value['name'];
+  }
 
   $form['sagepayapi_currencies'] = array(
     '#type' => 'select',
     '#title' => t('Currency'),
     '#description' => t('Select all of the currencies in which you wish to trade.'),
     '#multiple' => TRUE,
-    '#default_value' => variable_get('sagepayapi_currencies', array('GBP' => 'GBP')),
-    '#options' => array(
-      'GBP' => 'GBP',
-      'USD' => 'USD',
-      'EUR' => 'EUR',
-      'AUD' => 'AUD',
-    ),
+    '#default_value' => variable_get('sagepayapi_currencies', ''),
+    '#options' => $cur_options,
   );
 
   $form['sagepayapi_transaction_type'] = array(
@@ -162,9 +161,13 @@ function sagepayapi_admin_settings_validate($form, &$form_state) {
     }
   }
 
-  // @todo test the password validation
+  // Ensure that at least one currency is selected
+  if (empty($form_state['values']['sagepayapi_currencies'])) {
+    form_set_error('sagepayapi_currencies', t('Please select at least one currency.'));
+  }
+
+  // Since we do not display a default value, check if the password exists already and do not remove it
   if (empty($form_state['values']['sagepayapi_encrypted_pass'])) {
-    // If the XOR password field is blank, we don't want to overwrite what may already be saved.
     if (variable_get('sagepayapi_encrypted_pass', '')) {
       unset($form_state['values']['sagepayapi_encrypted_pass']);
     }
@@ -210,7 +213,7 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
       // No amounts because this will be textfield
     ),
   );
-  $request = check_plain($req); // This is important! @todo check that someone can't type something funny in the url
+  $request = check_plain($req); // This is important! @todo test that someone can't type something funny in the url
   $allowed_requests = array();
   $fee_options = array();
   // Figure out what page argument strings are allowed and what their friendly names are
@@ -229,14 +232,11 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     $description = $fee_options['APP'];
   }
 
-  $currencies = variable_get('sagepayapi_currencies', array('GBP' => 'GBP'));
-  // @todo this information will come from the iso currency array
-  $currency_symbol = array(
-    'GBP' => "&pound;", // £
-    'EUR' => "&#8364;", // €
-    'USD' => "$",
-    'AUD' => "$",
-  );
+  $currencies = _sagepayapi_get_currencies();
+  $valid_currencies = variable_get('sagepayapi_currencies', '');
+  foreach ($valid_currencies as $cur) {
+    $cur_options[$cur] = $currencies[$cur]['name'];
+  }
 
   // Page two of this form
   // @todo enhance this for if client just needs page two
@@ -246,6 +246,9 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     // Build order info for Sage Pay
     $billingcountry = check_plain($values['BillingCountry']);
     $billingaddress2 = check_plain($values['BillingAddress2']);
+      // @todo fix this
+    $cur_code = check_plain($values['Currency']);
+    $currency = _sagepayapi_get_currency($cur_code);
 
     $order = array(
       'Description' => $description,
@@ -337,7 +340,7 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     if ($billingstate) {
       $form['review']['state'] = array('#title' => t('State'), '#value' => $billingstate);
     }
-    $form['review']['basket'] = array('#title' => $description, '#value' => $order['Currency'] . " " . $currency_symbol[$order['Currency']] . $order['Amount']);
+    $form['review']['basket'] = array('#title' => $description, '#value' => $cur_code . " " . $currency['symbol'] . $order['Amount']);
 
     // Create the four hidden form fields required by Sage Pay Form
     $hidden_fields = array(
@@ -427,7 +430,8 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     '#type' => 'select',
     '#title' => t('Currency'),
     '#required' => TRUE,
-    '#options' => $currencies, // @todo detect default from billing country?
+    '#default_value' => 'GBP',
+    '#options' => $cur_options, // @todo detect default from billing country?
   );
 
   // Default to default description
@@ -455,14 +459,17 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
  * Validates data in billing order form
  */
 function sagepayapi_form_order_form_validate($form, &$form_state) {
+  // Validate page one form submission
   if ($form_state['clicked_button']['#id'] == 'edit-next') {
-    // @todo validate useramount
-    // /^(\d{1,3}+((\,\d{3})*|(\.\d{3})*)|(\d+))(\.\d{2}|\,\d{2})?$/
-    // $pattern = '';
-    // $user_amount = trim(check_plain($form_state['values']['UserAmount']));
-    //if (!empty($user_amount) && !is_numeric($user_amount) && !preg_match($pattern, $user_amount)) {
-      //form_set_error('UserAmount', t('Amount must be a valid number format with only a decimal or a comma.'));
-    //}
+    if ($form_state['values']['UserAmount']) {
+      $ua = trim(check_plain($form_state['values']['UserAmount']));
+      $cur_code = check_plain($form_state['values']['Currency']);
+      $currency = _sagepayapi_get_currency($cur_code);
+      $pattern = $currency['pattern']; // Get the custom regexp pattern for this specific currency
+      if (!is_numeric($ua) && !preg_match($pattern, $ua)) {
+        form_set_error('UserAmount', t('Please enter an amount that is formatted correctly for this currency.'));
+      }
+    }
   }
 }
 
