@@ -1,6 +1,0 @@
-; $Id$
-name = Sagepay API
-description = An API which allows modules to plug into Sagepay
-package = Webthingee
-core = 6.x
-php = 5.0
