@@ -1,0 +1,508 @@
+<?php
+
+// $Id$
+
+/**
+ * This will be a module that allows anything to integrate with Sagepay Server
+ */
+
+// Sagepay Form URLS
+define(SAGEPAYAPI_FORM_SIMULATOR_URL, 'https://test.sagepay.com/simulator/vspformgateway.asp');
+define(SAGEPAYAPI_FORM_TEST_URL, 'https://test.sagepay.com/gateway/service/vspform-register.vsp');
+define(SAGEPAYAPI_FORM_LIVE_URL, 'https://live.sagepay.com/gateway/service/vspform-register.vsp');
+
+$debug = variable_get('sagepayapi_debug', '');
+if (!empty($debug)) {
+  define(SAGEPAYAPI_DEBUG, TRUE);
+}
+else {
+  define(SAGEPAYAPI_DEBUG, FALSE);
+}
+
+
+/**
+ * Implements hook_perm
+ */
+function sagepayapi_perm() {
+  return array('administer sagepayapi');
+}
+
+/**
+ * Implements hook_menu
+ */
+function sagepayapi_menu() {
+  // Administrative settings page
+  $items['admin/settings/sagepayapi'] = array(
+    'title' => 'Sagepay API Settings',
+    'description' => 'Helper functions for hooking anything Drupal to Sagepay',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sagepayapi_admin_settings'),
+    'access arguments' => array('administer sagepayapi'),
+    'type' => MENU_NORMAL_ITEM,
+    'file' => 'sagepayapi.pages.inc',
+  );
+
+  // Order page
+  $items['sagepayapi/order'] = array(
+    'title' => 'Order',
+    'description' => 'Builds a form for submitting to Sage Pay',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sagepayapi_form_order_form'),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+    'file' => 'sagepayapi.pages.inc',
+  );
+  // Order page with arguments
+  $items['sagepayapi/order/%type'] = array(
+    'title' => 'Order',
+    'description' => 'Builds a form with arguments for submitting to Sage Pay',
+    'page callback' => 'drupal_get_form',
+    'page arguments' => array('sagepayapi_form_order_form', 2),
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+    'file' => 'sagepayapi.pages.inc',
+  );
+  
+  // Form completion page
+  $items['sagepayapi/thankyou'] = array(
+    'title' => 'Complete',
+    //'title callback' => 'sagepayapi_thankyou_title', // This should be dependent upon whether there is success or failure
+    'description' => 'Displays success or failure of Sage Pay Form transaction',
+    'page callback' => 'sagepayapi_form_transaction_status',
+    'access arguments' => array('access content'),
+    'type' => MENU_CALLBACK,
+    'file' => 'sagepayapi.pages.inc',
+  );
+
+  return $items;
+}
+
+/** THEMING FUNCTIONS **/
+
+/**
+ * Implements hook_theme()
+ */
+function sagepayapi_theme() {
+  return array(
+    'sagepayapi_form_order_form' => array(
+      'arguments' => array('form' => NULL)
+    ),
+    'sagepayapi_form_order_review' => array(
+      'arguments' => array('elements' => NULL)
+    ),
+  );
+}
+
+/**
+ * Theme the Sagepayapi Form order form
+ */
+function theme_sagepayapi_form_order_form($form) {
+  $output = '';
+  // Page one of the form
+  if ($form['billing']) {
+    $output .= '<h3>';
+    $output .= t('Please enter your billing information.');
+    $output .= '</h3>';
+  }
+  // Page two of the form
+  if ($form['Crypt']) {
+    $output .= '<h3>';
+    $output .= t('Please review your billing details.');
+    $output .= '</h3>';
+    $output .= '<p>' . t('You will be taken to a secure server to enter your payment information on the next screen.  If you need to go back and edit your details, please hit the back button on your browser.') . '</p>';
+
+  }
+  $output .= drupal_render($form);
+  return $output;
+}
+
+/**
+ * Theme the review of the order and billing details
+ */
+function theme_sagepayapi_form_order_review(&$elements) {
+  $output = '<div id="sagepay-order-review">';
+  foreach ($elements as $element) {
+    if (is_array($element) && $element['#parents'][0] == 'review') {
+      $output .= '<strong>' . $element['#title'] . ':</strong> ' . $element['#value'] . '<br />';
+    }
+  }
+  $output .= '</div>';
+  return $output;
+}
+
+/**
+ * Returns a dummy order array for testing purposes
+ *
+ * @return
+ *   An array
+ */
+function sagepayapi_dummy_order() {
+  return array(
+    'Description' => t('Dummy Order'),
+    'Amount' => '1',
+    'BillingSurname' => 'Borsody',
+    'BillingFirstnames' => 'Stacey',
+    'CustomerEmail' => "stacey.borsody@yahoo.com",
+    'BillingAddress1' => '123 Main St.',
+    'BillingCity' => 'Pleasanton',
+    'BillingPostcode' => '94566',
+    'BillingState' => "CA",
+    'BillingCountry' => 'US',
+    'BillingPhone' => '1-925-640-2034',
+    'DeliverySurname' => 'Borsody',
+    'DeliveryFirstnames' => 'Stacey',
+    'DeliveryAddress1' => '123 Main St.',
+    'DeliveryCity' => 'Pleasanton',
+    'DeliveryPostcode' => '94566',
+    'DeliveryState' => "CA",
+    'DeliveryCountry' => 'US',
+  );
+}
+
+/**
+ * Generate a Sage Pay Form crypt string
+ *
+ * @param $data
+ *   Takes an associative array of order form information
+ *
+ * @return
+ *   Returns encrypted and encoded string
+ */
+function sagepayapi_form_get_crypt_string($data) {
+  $strencryptionpassword = variable_get('sagepayapi_encrypted_pass', '');
+
+  // http_build_query is not useful here because we don't need the strings urlencoded for Sage Pay Form.
+  // $strPost = http_build_query($data, NULL, '&');
+  // So instead we'll build the query string manually without urlencoding and encrypt and base64 encode it.
+  $strPost = '';
+  foreach ($data as $name => $value) {
+    $strPost .= $name . '=' . $value . '&';
+  }
+  // Remove the last ampersand from the string because we're at the end of our query string.
+  $strPost = substr($strPost, 0, -1);
+
+  // If debugging is turned on, send unencrypted string to watchdog
+  if (SAGEPAYAPI_DEBUG) {
+    watchdog('sagepayapi','Sage Pay Form Transaction Registration string !strpost', array('!strpost' => $strPost) , WATCHDOG_DEBUG);
+  }
+  // Now encrypt it with our XOR password and encode it
+  $strCrypt = _sagepayapi_base64_encode(_sagepayapi_simpleXor($strPost, $strencryptionpassword));
+
+  return $strCrypt;
+}
+
+/* INCLUDES from sample php kit */
+/**
+ * Generate a unique VendorTxCode
+ */
+function sagepayapi_get_vendortxcode() {
+  $intRandNum = rand(1, 32000)*rand(0, 32000);
+  $vendortxcode = variable_get('sagepayapi_vendor', 'XXX') . time() . $intRandNum;
+  return $vendortxcode;
+}
+
+/**
+ * NOTE: A function of convenience that extracts the value from the "name=value&name2=value2..." reply string 
+ * Works even if one of the values is a URL containing the & or = signs.
+ *
+ * @param $thisString
+ *
+ * @return
+ */
+function _sagepayapi_get_tokens($thisString) {
+
+  // List the possible tokens
+  $Tokens = array(
+    "Status",
+    "StatusDetail",
+    "VendorTxCode",
+    "VPSTxId",
+    "TxAuthNo",
+    "Amount",
+    "AVSCV2", 
+    "AddressResult", 
+    "PostCodeResult", 
+    "CV2Result", 
+    "GiftAid", 
+    "3DSecureStatus", 
+    "CAVV",
+    "AddressStatus",
+    "CardType",
+    "Last4Digits",
+    "PayerStatus",
+  );
+
+  // Initialise arrays
+  $output = array();
+  $resultArray = array();
+  
+  // Get the next token in the sequence
+  for ($i = count($Tokens)-1; $i >= 0 ; $i--) {
+    // Find the position in the string
+    $start = strpos($thisString, $Tokens[$i]);
+  // If it's present
+    if ($start !== FALSE) {
+      // Record position and token name
+      $resultArray[$i]->start = $start;
+      $resultArray[$i]->token = $Tokens[$i];
+    }
+  }
+  
+  // Sort in order of position
+  sort($resultArray);
+  // Go through the result array, getting the token values
+  for ($i = 0; $i<count($resultArray); $i++) {
+    // Get the start point of the value
+    $valueStart = $resultArray[$i]->start + strlen($resultArray[$i]->token) + 1;
+  // Get the length of the value
+    if ($i==(count($resultArray)-1)) {
+      $output[$resultArray[$i]->token] = substr($thisString, $valueStart);
+    }
+    else {
+      $valueLength = $resultArray[$i+1]->start - $resultArray[$i]->start - strlen($resultArray[$i]->token) - 2;
+    $output[$resultArray[$i]->token] = substr($thisString, $valueStart, $valueLength);
+    }      
+
+  }
+
+  // Return the ouput array
+  return $output;
+}
+
+/**
+ * Filters unwanted characters out of an input string.  Useful for tidying up FORM field inputs.
+ */
+function _sagepayapi_cleanInput($strRawText, $strType) {
+
+  if ($strType=="Number") {
+    $strClean="0123456789.";
+    $bolHighOrder=FALSE;
+  }
+  elseif ($strType=="VendorTxCode") {
+    $strClean="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_.";
+    $bolHighOrder=FALSE;
+  }
+  else {
+      $strClean=" ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,'/{}@():?-_&£$=%~<>*+\"";
+    $bolHighOrder=TRUE;
+  }
+  
+  $strCleanedText="";
+  $iCharPos = 0;
+    
+  do {
+        // Only include valid characters
+      $chrThisChar=substr($strRawText, $iCharPos, 1);
+      
+      if (strspn($chrThisChar, $strClean, 0, strlen($strClean))>0) { 
+        $strCleanedText=$strCleanedText . $chrThisChar;
+      }
+      elseif ($bolHighOrder==TRUE) {
+        // Fix to allow accented characters and most high order bit chars which are harmless 
+        if (bin2hex($chrThisChar)>=191) {
+          $strCleanedText=$strCleanedText . $chrThisChar;
+        }
+      }
+      
+    $iCharPos=$iCharPos+1;
+    }
+  while ($iCharPos<strlen($strRawText));
+    
+    $cleanInput = ltrim($strCleanedText);
+  return $cleanInput;
+  
+}
+
+/* Base 64 Encoding function **
+** PHP does it natively but just for consistency and ease of maintenance, let's declare our own function **/
+
+function _sagepayapi_base64_encode($plain) {
+  // Initialise output variable
+  $output = "";
+  
+  // Do encoding
+  $output = base64_encode($plain);
+  
+  // Return the result
+  return $output;
+}
+
+/* Base 64 decoding function **
+** PHP does it natively but just for consistency and ease of maintenance, let's declare our own function **/
+
+function _sagepayapi_base64_decode($scrambled) {
+  // Initialise output variable
+  $output = "";
+  
+  // Fix plus to space conversion issue
+  $scrambled = str_replace(" ", "+", $scrambled);
+  
+  // Do encoding
+  $output = base64_decode($scrambled);
+  
+  // Return the result
+  return $output;
+}
+
+
+/*  The SimpleXor encryption algorithm                                                                                **
+**  NOTE: This is a placeholder really.  Future releases of Form will use AES or TwoFish.  Proper encryption      **
+**  This simple function and the Base64 will deter script kiddies and prevent the "View Source" type tampering        **
+**  It won't stop a half decent hacker though, but the most they could do is change the amount field to something     **
+**  else, so provided the vendor checks the reports and compares amounts, there is no harm done.  It's still          **
+**  more secure than the other PSPs who don't both encrypting their forms at all                                      */
+
+function _sagepayapi_simpleXor($InString, $Key) {
+  // Initialise key array
+  $KeyList = array();
+  // Initialise out variable
+  $output = "";
+  
+  // Convert $Key into array of ASCII values
+  for ($i = 0; $i < strlen($Key); $i++) {
+    $KeyList[$i] = ord(substr($Key, $i, 1));
+  }
+
+  // Step through string a character at a time
+  for ($i = 0; $i < strlen($InString); $i++) {
+    // Get ASCII code from string, get ASCII code from key (loop through with MOD), XOR the two, get the character from the result
+    // % is MOD (modulus), ^ is XOR
+    $output .= chr(ord(substr($InString, $i, 1)) ^ ($KeyList[$i % strlen($Key)]));
+  }
+
+  // Return the result
+  return $output;
+}
+
+/**
+ * Advertises the Sage Pay Protocol version this module implements
+ */
+function sagepayapi_protocol_version() {
+  return "2.23";
+}
+
+/**
+ * Builds array of countries
+ */
+function _sagepayapi_get_countries() {
+  $countries = array(
+    'US' => 'United States',
+    'GB' => 'Great Britian',
+    'AU' => 'Australia',
+    'NZ' => 'New Zealand',
+    'ZA' => 'South Africa',
+  );
+  return $countries;
+}
+
+/**
+ * Builds array of states
+ */
+function _sagepayapi_get_states() {
+  $states = array(
+    'NULL' => '----',
+    'AL' => 'Alabama',
+    'AK' => 'Alaska',
+    'AZ' => 'Arizona',
+    'AR' => 'Arkansas',
+    'CA' => 'California',
+    'CO' => 'Colorado',
+    'CT' => 'Connecticut',
+    'DE' => 'Delaware',
+    'DC' => 'District Of Columbia',
+    'FL' => 'Florida',
+    'GA' => 'Georgia',
+    'HI' => 'Hawaii',
+    'ID' => 'Idaho',
+    'IL' => 'Illinois',
+    'IN' => 'Indiana',
+    'IA' => 'Iowa',
+    'KS' => 'Kansas',
+    'KY' => 'Kentucky',
+    'LA' => 'Louisiana',
+    'ME' => 'Maine',
+    'MD' => 'Maryland',
+    'MA' => 'Massachusetts',
+    'MI' => 'Michigan',
+    'MN' => 'Minnesota',
+    'MS' => 'Mississippi',
+    'MO' => 'Missouri',
+    'MT' => 'Montana',
+    'NE' => 'Nebraska',
+    'NV' => 'Nevada',
+    'NH' => 'New Hampshire',
+    'NJ' => 'New Jersey',
+    'NM' => 'New Mexico',
+    'NY' => 'New York',
+    'NC' => 'North Carolina',
+    'ND' => 'North Dakota',
+    'OH' => 'Ohio',
+    'OK' => 'Oklahoma',
+    'OR' => 'Oregon',
+    'PA' => 'Pennsylvania',
+    'RI' => 'Rhode Island',
+    'SC' => 'South Carolina',
+    'SD' => 'South Dakota',
+    'TN' => 'Tennessee',
+    'TX' => 'Texas',
+    'UT' => 'Utah',
+    'VT' => 'Vermont',
+    'VA' => 'Virginia',
+    'WA' => 'Washington',
+    'WV' => 'West Virginia',
+    'WI' => 'Wisconsin',
+    'WY' => 'Wyoming',
+  );
+  return $states;
+}
+
+/**
+ * Returns ISO 4217 Currency information
+ *
+ * @todo fill out the other currencies, add unicode symbol
+ */
+function _sagepayapi_get_currencies() {
+  return array(
+    'AUD' => array('name' => t('Australian Dollar (AUD)'), 'symbol' => "$", 'pattern' => '/^(\d{1,3}+(\,\d{3})*|(\d+))(\.\d{2})?$/'),
+    'GBP' => array('name' => t('British Pound (GBP)'), 'symbol' => "&pound;", 'pattern' => '/^(\d{1,3}+(\,\d{3})*|(\d+))(\.\d{2})?$/'),
+    'EUR' => array('name' => t('Euro (EUR)'), 'symbol' => "&#8364;", 'pattern' => '/^(\d{1,3}+(\.\d{3})*|(\d+))(\,\d{2})?$/'),
+    'USD' => array('name' => t('U.S. Dollar (USD)'), 'symbol' => "$", 'pattern' => '/^(\d{1,3}+(\,\d{3})*|(\d+))(\.\d{2})?$/'),
+  );
+}
+
+/**
+ * Returns information about a single currency
+ *
+ * @param
+ *   A string containing the 3-letter ISO 4217 code of a currency
+ *
+ * @return
+ *   Returns an array of information about a single currency
+ */
+function _sagepayapi_get_currency($cur = NULL) {
+  if ($cur) {
+    $arr = _sagepayapi_get_currencies();
+    return $arr[$cur];
+  }
+}
+
+/**
+ * Sends user to one of two different user-created pages depending upon status
+ *
+ * @param $status
+ *   Boolean.  Either pass or fail.
+ */
+function sagepayapi_form_status_goto($status = 1) {
+  if ($status) {
+    $successurl = variable_get('sagepayapi_success_page', '');
+    if ($successurl) {
+      drupal_goto($successurl);
+    }
+  }
+  else {
+    $failurl = variable_get('sagepayapi_failure_page', '');
+    if ($failurl) {
+      drupal_goto($failurl);
+    }
+  }
+}
