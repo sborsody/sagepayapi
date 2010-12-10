@@ -443,7 +443,7 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     $form['order']['UserAmount'] = array(
       '#type' => 'textfield',
       '#title' => t('Enter amount'),
-      '#description' => t('Optional: Please enter the amount if you are paying off your program balance.'),
+      '#description' => t('Please enter a number without the currency symbol for the remaining program balance. Example: 23.00'),
     );
   }
 
