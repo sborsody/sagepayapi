@@ -4,18 +4,18 @@
 
 /**
  * @file
- *   Pages and page callbacks
+ * Pages and page callbacks
  *
  * @ingroup sagepayapi
  */
 
 /**
- * Administrative settings form
+ * Form builder for the Sage Pay administrative settings form.
  *
- * @return
- *   An array containing FAPI data
+ * @see sagepayapi_admin_settings_form_validate()
+ * @ingroup forms
  */
-function sagepayapi_admin_settings() {
+function sagepayapi_admin_settings_form() {
   $form['sagepayapi_form_url'] = array(
     '#type' => 'radios',
     '#title' => t('Sagepay Form URL'),
@@ -130,19 +130,16 @@ function sagepayapi_admin_settings() {
     '#default_value' => variable_get('sagepayapi_form_submit_string', t('Pay Now')),
   );
 
-  $form['#validate'][] = 'sagepayapi_admin_settings_validate';
+  $form['#validate'][] = 'sagepayapi_admin_settings_form_validate';
   return system_settings_form($form);
 }
 
 /**
- * Validation callback for the administrative settings form
+ * Form validation handler for sagepayapi_admin_settings_form()
  *
- * @param
- *   $form
- *   &$form_state
- *
+ * @see sagepayapi_admin_settings_form()
  */
-function sagepayapi_admin_settings_validate($form, &$form_state) {
+function sagepayapi_admin_settings_form_validate($form, &$form_state) {
   // @todo refactor this check for both success and failure pages
   if ($form_state['values']['sagepayapi_success_page']) {
     $path = trim(check_plain($form_state['values']['sagepayapi_success_page']));
@@ -178,11 +175,11 @@ function sagepayapi_admin_settings_validate($form, &$form_state) {
 }
 
 /**
- * This form is a two-step form
+ * Form builder for the Sage Pay Form order form.
  *
- * @param
- *   $form_state
- *   $req
+ * @see sagepayapi_form_order_form_validate()
+ * @see sagepayapi_form_order_form_submit()
+ * @ingroup forms
  */
 function sagepayapi_form_order_form($form_state, $req = NULL) {
   // Set up fee schedule
@@ -456,7 +453,10 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
 }
 
 /**
- * Validates data in billing order form
+ * Form validation handler for sagepayapi_form_order_form()
+ *
+ * @see sagepayapi_form_order_form()
+ * @see sagepayapi_form_order_form_submit()
  */
 function sagepayapi_form_order_form_validate($form, &$form_state) {
   // Validate page one form submission
@@ -474,7 +474,10 @@ function sagepayapi_form_order_form_validate($form, &$form_state) {
 }
 
 /**
- * Handles submission of order form
+ * Form submission handler for sagepayapi_form_order_form()
+ *
+ * @see sagepayapi_form_order_form()
+ * @see sagepayapi_form_order_form_validate()
  */
 function sagepayapi_form_order_form_submit($form, &$form_state) {
   if ($form_state['clicked_button']['#id'] == 'edit-next') {

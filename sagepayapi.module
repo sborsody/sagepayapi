@@ -6,11 +6,16 @@
  * This will be a module that allows anything to integrate with Sagepay Server
  */
 
-// Sagepay Form URLS
+/**
+ * Denotes URLs for the Sage Pay Form Test, Live, and Simulator servers
+ */
 define(SAGEPAYAPI_FORM_SIMULATOR_URL, 'https://test.sagepay.com/simulator/vspformgateway.asp');
 define(SAGEPAYAPI_FORM_TEST_URL, 'https://test.sagepay.com/gateway/service/vspform-register.vsp');
 define(SAGEPAYAPI_FORM_LIVE_URL, 'https://live.sagepay.com/gateway/service/vspform-register.vsp');
 
+/**
+ * Denotes whether debugging is on or off
+ */
 $debug = variable_get('sagepayapi_debug', '');
 if (!empty($debug)) {
   define(SAGEPAYAPI_DEBUG, TRUE);
@@ -21,14 +26,14 @@ else {
 
 
 /**
- * Implements hook_perm
+ * Implements hook_perm()
  */
 function sagepayapi_perm() {
   return array('administer sagepayapi');
 }
 
 /**
- * Implements hook_menu
+ * Implements hook_menu()
  */
 function sagepayapi_menu() {
   // Administrative settings page
@@ -36,7 +41,7 @@ function sagepayapi_menu() {
     'title' => 'Sagepay API Settings',
     'description' => 'Helper functions for hooking anything Drupal to Sagepay',
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('sagepayapi_admin_settings'),
+    'page arguments' => array('sagepayapi_admin_settings_form'),
     'access arguments' => array('administer sagepayapi'),
     'type' => MENU_NORMAL_ITEM,
     'file' => 'sagepayapi.pages.inc',
@@ -94,7 +99,12 @@ function sagepayapi_theme() {
 }
 
 /**
- * Theme the Sagepayapi Form order form
+ * Returns HTML for the Sage Pay Form order form
+ *
+ * @param $form
+ *   An associative array containing the form
+ *
+ * @ingroup themeable
  */
 function theme_sagepayapi_form_order_form($form) {
   $output = '';
@@ -117,7 +127,14 @@ function theme_sagepayapi_form_order_form($form) {
 }
 
 /**
- * Theme the review of the order and billing details
+ * Returns HTML for the Sage Pay Form order form review page
+ *
+ * @param &$elements
+ *   An associative array containing:
+ *   - The review fieldset form element
+ *   - Children of the fieldset
+ *
+ * @ingroup themeable
  */
 function theme_sagepayapi_form_order_review(&$elements) {
   $output = '<div id="sagepay-order-review">';
@@ -473,8 +490,9 @@ function _sagepayapi_get_currencies() {
 /**
  * Returns information about a single currency
  *
- * @param
- *   A string containing the 3-letter ISO 4217 code of a currency
+ * @param $cur
+ *   (optional) A string containing the 3-letter ISO 4217 code of a currency.
+ *   Defaults to NULL.
  *
  * @return
  *   Returns an array of information about a single currency
@@ -490,7 +508,7 @@ function _sagepayapi_get_currency($cur = NULL) {
  * Sends user to one of two different user-created pages depending upon status
  *
  * @param $status
- *   Boolean.  Either pass or fail.
+ *   (optional) Boolean.  Defaults to 1
  */
 function sagepayapi_form_status_goto($status = 1) {
   if ($status) {
