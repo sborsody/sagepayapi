@@ -16,14 +16,9 @@ define(SAGEPAYAPI_FORM_LIVE_URL, 'https://live.sagepay.com/gateway/service/vspfo
 /**
  * Denotes whether debugging is on or off
  */
-$debug = variable_get('sagepayapi_debug', '');
-if (!empty($debug)) {
-  define(SAGEPAYAPI_DEBUG, TRUE);
-}
-else {
-  define(SAGEPAYAPI_DEBUG, FALSE);
-}
+$debug = variable_get('sagepayapi_debug', 'FALSE');
 
+// @todo add hook_help()
 
 /**
  * Implements hook_perm()
@@ -62,12 +57,12 @@ function sagepayapi_menu() {
     'title' => 'Order',
     'description' => 'Builds a form with arguments for submitting to Sage Pay',
     'page callback' => 'drupal_get_form',
-    'page arguments' => array('sagepayapi_form_order_form', 2),
+    'page arguments' => array('sagepayapi_form_order_form', 2), // @todo I think 2 can be changed to %type
     'access arguments' => array('access content'),
     'type' => MENU_CALLBACK,
     'file' => 'sagepayapi.pages.inc',
   );
-  
+
   // Form completion page
   $items['sagepayapi/thankyou'] = array(
     'title' => 'Complete',
@@ -199,8 +194,8 @@ function sagepayapi_form_get_crypt_string($data) {
   $strPost = substr($strPost, 0, -1);
 
   // If debugging is turned on, send unencrypted string to watchdog
-  if (SAGEPAYAPI_DEBUG) {
-    watchdog('sagepayapi','Sage Pay Form Transaction Registration string !strpost', array('!strpost' => $strPost) , WATCHDOG_DEBUG);
+  if ($debug) {
+    watchdog('sagepayapi', 'Sage Pay Form Transaction Registration string !strpost', array('!strpost' => $strPost), WATCHDOG_DEBUG);
   }
   // Now encrypt it with our XOR password and encode it
   $strCrypt = _sagepayapi_base64_encode(_sagepayapi_simpleXor($strPost, $strencryptionpassword));
@@ -219,7 +214,7 @@ function sagepayapi_get_vendortxcode() {
 }
 
 /**
- * NOTE: A function of convenience that extracts the value from the "name=value&name2=value2..." reply string 
+ * NOTE: A function of convenience that extracts the value from the "name=value&name2=value2..." reply string
  * Works even if one of the values is a URL containing the & or = signs.
  *
  * @param $thisString
@@ -236,12 +231,12 @@ function _sagepayapi_get_tokens($thisString) {
     "VPSTxId",
     "TxAuthNo",
     "Amount",
-    "AVSCV2", 
-    "AddressResult", 
-    "PostCodeResult", 
-    "CV2Result", 
-    "GiftAid", 
-    "3DSecureStatus", 
+    "AVSCV2",
+    "AddressResult",
+    "PostCodeResult",
+    "CV2Result",
+    "GiftAid",
+    "3DSecureStatus",
     "CAVV",
     "AddressStatus",
     "CardType",
@@ -252,7 +247,7 @@ function _sagepayapi_get_tokens($thisString) {
   // Initialise arrays
   $output = array();
   $resultArray = array();
-  
+
   // Get the next token in the sequence
   for ($i = count($Tokens)-1; $i >= 0 ; $i--) {
     // Find the position in the string
@@ -264,7 +259,7 @@ function _sagepayapi_get_tokens($thisString) {
       $resultArray[$i]->token = $Tokens[$i];
     }
   }
-  
+
   // Sort in order of position
   sort($resultArray);
   // Go through the result array, getting the token values
@@ -278,8 +273,7 @@ function _sagepayapi_get_tokens($thisString) {
     else {
       $valueLength = $resultArray[$i+1]->start - $resultArray[$i]->start - strlen($resultArray[$i]->token) - 2;
     $output[$resultArray[$i]->token] = substr($thisString, $valueStart, $valueLength);
-    }      
-
+    }
   }
 
   // Return the ouput array
@@ -300,81 +294,82 @@ function _sagepayapi_cleanInput($strRawText, $strType) {
     $bolHighOrder=FALSE;
   }
   else {
-      $strClean=" ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,'/{}@():?-_&£$=%~<>*+\"";
+      $strClean=" ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.,'/{}@():?-_&£$=%~<>*+\""; // @todo should there be a space there?
     $bolHighOrder=TRUE;
   }
-  
+
   $strCleanedText="";
   $iCharPos = 0;
-    
+
   do {
         // Only include valid characters
       $chrThisChar=substr($strRawText, $iCharPos, 1);
-      
-      if (strspn($chrThisChar, $strClean, 0, strlen($strClean))>0) { 
+
+      if (strspn($chrThisChar, $strClean, 0, strlen($strClean))>0) {
         $strCleanedText=$strCleanedText . $chrThisChar;
       }
       elseif ($bolHighOrder==TRUE) {
-        // Fix to allow accented characters and most high order bit chars which are harmless 
+        // Fix to allow accented characters and most high order bit chars which are harmless
         if (bin2hex($chrThisChar)>=191) {
           $strCleanedText=$strCleanedText . $chrThisChar;
         }
       }
-      
+
     $iCharPos=$iCharPos+1;
     }
   while ($iCharPos<strlen($strRawText));
-    
-    $cleanInput = ltrim($strCleanedText);
+
+  $cleanInput = ltrim($strCleanedText);
   return $cleanInput;
-  
 }
 
-/* Base 64 Encoding function **
-** PHP does it natively but just for consistency and ease of maintenance, let's declare our own function **/
-
+/**
+ * Base 64 Encoding function
+ * PHP does it natively but just for consistency and ease of maintenance, let's declare our own function
+ */
 function _sagepayapi_base64_encode($plain) {
   // Initialise output variable
   $output = "";
-  
+
   // Do encoding
   $output = base64_encode($plain);
-  
+
   // Return the result
   return $output;
 }
 
-/* Base 64 decoding function **
-** PHP does it natively but just for consistency and ease of maintenance, let's declare our own function **/
-
+/**
+ * Base 64 decoding function
+ * PHP does it natively but just for consistency and ease of maintenance, let's declare our own function
+ */
 function _sagepayapi_base64_decode($scrambled) {
   // Initialise output variable
   $output = "";
-  
+
   // Fix plus to space conversion issue
   $scrambled = str_replace(" ", "+", $scrambled);
-  
+
   // Do encoding
   $output = base64_decode($scrambled);
-  
+
   // Return the result
   return $output;
 }
 
-
-/*  The SimpleXor encryption algorithm                                                                                **
-**  NOTE: This is a placeholder really.  Future releases of Form will use AES or TwoFish.  Proper encryption      **
-**  This simple function and the Base64 will deter script kiddies and prevent the "View Source" type tampering        **
-**  It won't stop a half decent hacker though, but the most they could do is change the amount field to something     **
-**  else, so provided the vendor checks the reports and compares amounts, there is no harm done.  It's still          **
-**  more secure than the other PSPs who don't both encrypting their forms at all                                      */
-
+/**
+ * The SimpleXor encryption algorithm
+ * NOTE: This is a placeholder really.  Future releases of Form will use AES or TwoFish.  Proper encryption
+ * This simple function and the Base64 will deter script kiddies and prevent the "View Source" type tampering
+ * It won't stop a half decent hacker though, but the most they could do is change the amount field to something
+ * else, so provided the vendor checks the reports and compares amounts, there is no harm done.  It's still
+ * more secure than the other PSPs who don't both encrypting their forms at all
+ */
 function _sagepayapi_simpleXor($InString, $Key) {
   // Initialise key array
   $KeyList = array();
   // Initialise out variable
   $output = "";
-  
+
   // Convert $Key into array of ASCII values
   for ($i = 0; $i < strlen($Key); $i++) {
     $KeyList[$i] = ord(substr($Key, $i, 1));

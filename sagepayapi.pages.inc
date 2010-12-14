@@ -18,8 +18,8 @@
 function sagepayapi_admin_settings_form() {
   $form['sagepayapi_form_url'] = array(
     '#type' => 'radios',
-    '#title' => t('Sagepay Form URL'),
-    '#description' => t('Select the Sagepay Form server to use. Be CAREFUL with this!'),
+    '#title' => t('Sage Pay Form URL'),
+    '#description' => t('Select the Sage Pay Form server to use. Be CAREFUL with this!'),
     '#default_value' => variable_get('sagepayapi_form_url', SAGEPAYAPI_FORM_SIMULATOR_URL),
     '#options' => array(
       'SAGEPAYAPI_FORM_SIMULATOR_URL' => t("Simulator"),
@@ -32,15 +32,15 @@ function sagepayapi_admin_settings_form() {
   $form['sagepayapi_vendor'] = array(
     '#type' => 'textfield',
     '#title' => t('Vendor'),
-    '#description' => t('This is the vendor id you set up with or were assigned by Sagepay'),
+    '#description' => t('This is the vendor ID you set up with or were assigned by Sage Pay'),
     '#default_value' => variable_get('sagepayapi_vendor', ''),
     '#required' => TRUE,
   );
 
   $form['sagepayapi_encrypted_pass'] = array(
     '#type' => 'password',
-    '#title' => t('XOR Encryption Password'),
-    '#description' => t('This is the XOR encrypted password supplied by Sagepay'),
+    '#title' => t('XOR encryption password'),
+    '#description' => t('This is the XOR encrypted password supplied by Sage Pay'),
   );
 
   $form['sagepayapi_success_page'] = array(
@@ -74,7 +74,7 @@ function sagepayapi_admin_settings_form() {
 
   $form['sagepayapi_transaction_type'] = array(
     '#type' => 'radios',
-    '#title' => t('Transaction Type'),
+    '#title' => t('Transaction type'),
     '#description' => t('Depends upon what your Sage Pay account supports. (Deferred and authenticate are not supported at this time)'),
     '#default_value' => variable_get('sagepayapi_transaction_type', 'PAYMENT'),
     '#options' => array(
@@ -85,15 +85,15 @@ function sagepayapi_admin_settings_form() {
   );
 
   // Optional Settings Fieldset
-  $form['sagepayapi_optional_settings'] = array( 
+  $form['sagepayapi_optional_settings'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Optional Settings'),
+    '#title' => t('Optional settings'),
     '#collapsible' => TRUE,
   );
 
   $form['sagepayapi_optional_settings']['sagepayapi_send_email'] = array(
     '#type' => 'radios',
-    '#title' => t('Email Options'),
+    '#title' => t('Email options'),
     '#default_value' => variable_get('sagepayapi_send_email', 1),
     '#options' => array(
       0 => t('Do not send either customer or vendor e-mails'),
@@ -104,7 +104,7 @@ function sagepayapi_admin_settings_form() {
 
   $form['sagepayapi_optional_settings']['sagepayapi_vendor_email'] = array(
     '#type' => 'textfield',
-    '#title' => t('Vendor Email Address'),
+    '#title' => t('Vendor email address'),
     '#description' => t('Optional setting. Set this to the mail address which will receive order confirmations and failures.'),
     '#default_value' => variable_get('sagepayapi_vendor_email', ''),
   );
@@ -120,7 +120,7 @@ function sagepayapi_admin_settings_form() {
     '#type' => 'checkbox',
     '#title' => t('Watchdog debugging'),
     '#description' => t("Check this in order to send debugging information to Drupal's watchdog"),
-    '#default_value' => variable_get('sagepayapi_debug', ''),
+    '#default_value' => variable_get('sagepayapi_debug', 'FALSE'),
   );
 
   $form['sagepayapi_optional_settings']['sagepayapi_form_submit_string'] = array(
@@ -238,7 +238,7 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
   // Page two of this form
   // @todo enhance this for if client just needs page two
   if (isset($form_state['storage']['page_two'])) {
-    //$order = sagepayapi_dummy_order();
+    // $order = sagepayapi_dummy_order();
     $values = $form_state['storage']['page_one_values'];
     // Build order info for Sage Pay
     $billingcountry = check_plain($values['BillingCountry']);
@@ -264,7 +264,7 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
       'DeliveryPostCode' => check_plain($values['BillingPostCode']),
       'DeliveryCountry' => $billingcountry,
     );
-    
+
     // Pick correct amount for application fee based upon selected currency.
     // @todo make this configurable
     if ($request && $allowed) {
@@ -279,7 +279,7 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     else {
         $order['Amount'] = $fees['APP']['#amounts'][$order['Currency']];
     }
-    
+
     // Only set State if country is US
     if ($billingcountry == 'US') {
       $billingstate = check_plain($values['BillingState']);
@@ -290,7 +290,7 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
       $order['BillingAddress2'] = $billingaddress2;
       $order['DeliveryAddress2'] = $billingaddress2;
     }
-    
+
     // Generate vendor tx code
     $vendortxcode = sagepayapi_get_vendortxcode();
 
@@ -417,7 +417,7 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     '#title' => t('Phone number'),
     '#required' => TRUE,
   );
-  
+
   $form['order'] = array(
     '#type' => 'fieldset',
     '#title' => t('Fee information'),
@@ -489,10 +489,10 @@ function sagepayapi_form_order_form_submit($form, &$form_state) {
 
 /**
  * Page callback for thank you page
+ *
+ * @todo check plain the get string!
  */
 function sagepayapi_form_transaction_status() {
-  $output = '';
-
   $returnvalue = _sagepayapi_simpleXor(_sagepayapi_base64_decode($_GET['crypt']), variable_get('sagepayapi_encrypted_pass', ''));
   $tokens = _sagepayapi_get_tokens($returnvalue);
 
@@ -509,7 +509,7 @@ function sagepayapi_form_transaction_status() {
       drupal_set_message(t('Transaction completed sucessfully.'));
       sagepayapi_form_status_goto(TRUE);
       break;
-    case 'NOTAUTHED' : 
+    case 'NOTAUTHED' :
       watchdog('sagepayapi', 'Transaction was NOTAUTHED for order !vendortxcode VPSTxId: !VPSTxId', array('!vendortxcode' => $vendortxcode, '!VPSTxId' => $vps_tx_id), WATCHDOG_WARNING);
       drupal_set_message(t('The bank has declined your transaction a number of times so we cannot process your order at this time.  Please contact us to continue your order manually.'), 'warning');
       sagepayapi_form_status_goto(FALSE);
@@ -550,6 +550,4 @@ function sagepayapi_form_transaction_status() {
       sagepayapi_form_status_goto(FALSE);
       break;
   }
-
-  return $output;
 }

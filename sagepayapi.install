@@ -1,0 +1,26 @@
+<?php
+// $Id$
+
+/**
+ * @file
+ * Install, uninstall, and update functions for the Sage Pay API module.
+ */
+
+/**
+ * Implements hook_uninstall()
+ */
+function sagepayapi_uninstall() {
+  // Remove items from {variables} table
+  variable_del('sagepayapi_form_url');
+  variable_del('sagepayapi_vendor');
+  variable_del('sagepayapi_encrypted_pass');
+  variable_del('sagepayapi_success_page');
+  variable_del('sagepayapi_failure_page');
+  variable_del('sagepayapi_currencies');
+  variable_del('sagepayapi_transaction_type');
+  variable_del('sagepayapi_send_email');
+  variable_del('sagepayapi_vendor_email');
+  variable_del('sagepayapi_partner_id');
+  variable_del('sagepayapi_debug');
+  variable_del('sagepayapi_form_submit_string');
+}
