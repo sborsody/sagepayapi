@@ -63,14 +63,46 @@ function sagepayapi_admin_settings_form() {
     $cur_options[$key] = $value['name'];
   }
 
+  $set_curs = variable_get('sagepayapi_currencies', '');
+
   $form['sagepayapi_currencies'] = array(
     '#type' => 'select',
     '#title' => t('Currency'),
     '#description' => t('Select all of the currencies in which you wish to trade.'),
     '#multiple' => TRUE,
-    '#default_value' => variable_get('sagepayapi_currencies', ''),
+    '#default_value' => $set_curs,
     '#options' => $cur_options,
   );
+
+  $form['sagepayapi_amounts'] = array(
+    '#type' => 'fieldset',
+    '#title' => t('Amounts'),
+    '#description' => t('Amounts for application fee and deposit fee in each currency'),
+    '#tree' => TRUE,
+    // '#theme' => 'sagepayapi_admin_amounts',
+  );
+
+
+  foreach ($set_curs as $key => $value) {
+      $arr = array(
+      '#type' => 'textfield',
+      '#size' => 6,
+    );
+
+    $app = t('Application Fee');
+    $dep = t('Deposit Fee');
+    $def_var = variable_get('sagepayapi_amounts', array());
+
+    $form['sagepayapi_amounts']['APP'][$key] = $arr;
+    $form['sagepayapi_amounts']['APP'][$key]['#default_value'] = $def_var['APP'][$key];
+    $form['sagepayapi_amounts']['APP'][$key]['#field_prefix'] = $app . ' ' . $key . ' ' . $currencies[$key]['symbol'];
+    // $form['sagepayapi_amounts']['APP'][$key]['#prefix'] = $app;
+
+    $form['sagepayapi_amounts']['DEP'][$key] = $arr;
+    $form['sagepayapi_amounts']['DEP'][$key]['#default_value'] = $def_var['DEP'][$key];
+    $form['sagepayapi_amounts']['DEP'][$key]['#field_prefix'] = $dep . ' ' . $key . ' ' . $currencies[$key]['symbol'];
+    // $form['sagepayapi_amounts']['DEP'][$key]['#prefix'] = $dep;
+  }
 
   $form['sagepayapi_transaction_type'] = array(
     '#type' => 'radios',
@@ -183,26 +215,18 @@ function sagepayapi_admin_settings_form_validate($form, &$form_state) {
  */
 function sagepayapi_form_order_form($form_state, $req = NULL) {
   // Set up fee schedule
+  // @todo make amounts configurable
+  $amounts = variable_get('sagepayapi_amounts', array());
   $fees = array(
     'APP' => array(
       '#name' => t('Internship Application'),
       '#url' => 'application', // @todo make this a constant?
-      '#amounts' => array(
-        'USD' => 75,
-        'GBP' => 50,
-        'EUR' => 65,
-        'AUD' => 100,
-      ),
+      '#amounts' => $amounts['APP'],
     ),
     'DEP' => array(
       '#name' => t('Program Deposit'),
       '#url' => 'deposit',
-      '#amounts' => array(
-        'USD' => 750,
-        'GBP' => 500,
-        'EUR' => 625,
-        'AUD' => 1000,
-      ),
+      '#amounts' => $amounts['DEP'],
     ),
     'OTH' => array(
       '#name' => t('Program Balance (Enter amount below)'),

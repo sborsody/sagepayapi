@@ -54,7 +54,7 @@ function sagepayapi_menu() {
   );
   // Order page with arguments
   $items['sagepayapi/order/%type'] = array(
-    'title' => 'Order',
+    'title' => 'Academy Payment Processing Center',
     'description' => 'Builds a form with arguments for submitting to Sage Pay',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('sagepayapi_form_order_form', 2), // @todo I think 2 can be changed to %type
@@ -85,10 +85,13 @@ function sagepayapi_menu() {
 function sagepayapi_theme() {
   return array(
     'sagepayapi_form_order_form' => array(
-      'arguments' => array('form' => NULL)
+      'arguments' => array('form' => NULL),
     ),
     'sagepayapi_form_order_review' => array(
-      'arguments' => array('elements' => NULL)
+      'arguments' => array('elements' => NULL),
+    ),
+    'sagepayapi_admin_amounts' => array(
+      'arguments' => array('elements' => NULL),
     ),
   );
 }
@@ -105,7 +108,6 @@ function theme_sagepayapi_form_order_form($form) {
   $output = '';
   // Page one of the form
   if ($form['billing']) {
-    $output .= '<h3>' . t('Please enter your billing information.') . '</h3>';
     $output .= '<p>';
     switch ($form['order']['Description']['#value']) {
       case t('Program Deposit'):
@@ -120,6 +122,7 @@ function theme_sagepayapi_form_order_form($form) {
         break;
     }
     $output .= '</p>';
+    $output .= '<h3>' . t('Please enter your billing information.') . '</h3>';
   }
   // Page two of the form
   if ($form['Crypt']) {
@@ -150,6 +153,36 @@ function theme_sagepayapi_form_order_review(&$elements) {
       $output .= '<strong>' . $element['#title'] . ':</strong> ' . $element['#value'] . '<br />';
     }
   }
+  $output .= '</div>';
+  return $output;
+}
+
+/**
+ * Returns HTML for the Sage Pay API admin settings amounts fieldset
+ * @todo MAKE THIS PRETTY
+ *
+ * @param &$elements
+ *   An associative array containing:
+ *   - The amounts fieldset
+ *   - Children of the fieldset
+ *
+ * @ingroup themeable
+ */
+function theme_sagepayapi_admin_amounts(&$elements) {
+// firep(element_children($elements));
+  $output = '<div id="sagepayapi-admin-amounts">';
+
+  $header = array(t('Application Fee'), t('Deposit Fee'));
+  $rows = array();
+
+  foreach (element_children($elements) as $key) {
+    // sagepayapi_form_app_AUD
+    // sagepayapi_form_dep_AUD
+    $row = array();
+    $rows[] = $row;
+  }
+
+  $output .= theme('table', $header, $rows);
   $output .= '</div>';
   return $output;
 }

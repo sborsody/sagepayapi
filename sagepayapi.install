@@ -23,4 +23,5 @@ function sagepayapi_uninstall() {
   variable_del('sagepayapi_partner_id');
   variable_del('sagepayapi_debug');
   variable_del('sagepayapi_form_submit_string');
+  variable_del('sagepayapi_amounts');
 }
