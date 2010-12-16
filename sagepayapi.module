@@ -44,7 +44,7 @@ function sagepayapi_menu() {
 
   // Order page
   $items['sagepayapi/order'] = array(
-    'title' => 'Order',
+    'title' => 'Academy Payment Processing Center',
     'description' => 'Builds a form for submitting to Sage Pay',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('sagepayapi_form_order_form'),
@@ -105,9 +105,21 @@ function theme_sagepayapi_form_order_form($form) {
   $output = '';
   // Page one of the form
   if ($form['billing']) {
-    $output .= '<h3>';
-    $output .= t('Please enter your billing information.');
-    $output .= '</h3>';
+    $output .= '<h3>' . t('Please enter your billing information.') . '</h3>';
+    $output .= '<p>';
+    switch ($form['order']['Description']['#value']) {
+      case t('Program Deposit'):
+        $output .= t("After entering your billing information below you will be automatically directed to our secure online payment page.");
+        break;
+      case t('Program Balance (Enter amount below)'):
+        $output .= t("After entering your billing information below you will be automatically directed to our secure online payment page.");
+        break;
+      case t('Internship Application'):
+      default:
+        $output .= t("Please be aware that in order to complete your online application process you need to submit the required processing fee (&pound;50/US$75/AU$100/&#8364;65).  After entering your billing information below you will be automatically directed to our secure online payment page.");
+        break;
+    }
+    $output .= '</p>';
   }
   // Page two of the form
   if ($form['Crypt']) {
