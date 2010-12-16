@@ -400,11 +400,7 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     '#title' => t('Postal/ZIP Code'),
     '#required' => TRUE,
   );
-  $form['billing']['BillingState'] = array(
-    '#type' => 'select',
-    '#title' => t('State (Required only for US)'),
-    '#options' => _sagepayapi_get_states(),
-  );
+
   $form['billing']['BillingCountry'] = array(
     '#type' => 'select',
     '#title' => t('Country'),
@@ -412,6 +408,17 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     '#default_value' => 'GB',
     '#options' => _sagepayapi_get_countries(),
   );
+  ctools_include('dependent');
+  $form['billing']['BillingState'] = array(
+    '#type' => 'select',
+    '#title' => t('State (Required only for US)'),
+    '#options' => _sagepayapi_get_states(),
+    '#process' => array('ctools_dependent_process'),
+    '#dependency' => array(
+      'edit-BillingCountry' => array('US'),
+    ),
+  );
+
   $form['billing']['BillingPhone'] = array(
     '#type' => 'textfield',
     '#title' => t('Phone number'),
