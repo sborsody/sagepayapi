@@ -79,7 +79,7 @@ function sagepayapi_admin_settings_form() {
     '#title' => t('Amounts'),
     '#description' => t('Amounts for application fee and deposit fee in each currency'),
     '#tree' => TRUE,
-    // '#theme' => 'sagepayapi_admin_amounts',
+    '#theme' => 'sagepayapi_admin_amounts',
   );
 
 
@@ -95,12 +95,12 @@ function sagepayapi_admin_settings_form() {
 
     $form['sagepayapi_amounts']['APP'][$key] = $arr;
     $form['sagepayapi_amounts']['APP'][$key]['#default_value'] = $def_var['APP'][$key];
-    $form['sagepayapi_amounts']['APP'][$key]['#field_prefix'] = $app . ' ' . $key . ' ' . $currencies[$key]['symbol'];
+    $form['sagepayapi_amounts']['APP'][$key]['#field_prefix'] = $key . ' ' . $currencies[$key]['symbol'];
     // $form['sagepayapi_amounts']['APP'][$key]['#prefix'] = $app;
 
     $form['sagepayapi_amounts']['DEP'][$key] = $arr;
     $form['sagepayapi_amounts']['DEP'][$key]['#default_value'] = $def_var['DEP'][$key];
-    $form['sagepayapi_amounts']['DEP'][$key]['#field_prefix'] = $dep . ' ' . $key . ' ' . $currencies[$key]['symbol'];
+    $form['sagepayapi_amounts']['DEP'][$key]['#field_prefix'] = $key . ' ' . $currencies[$key]['symbol'];
     // $form['sagepayapi_amounts']['DEP'][$key]['#prefix'] = $dep;
   }
 

@@ -91,7 +91,7 @@ function sagepayapi_theme() {
       'arguments' => array('elements' => NULL),
     ),
     'sagepayapi_admin_amounts' => array(
-      'arguments' => array('elements' => NULL),
+      'arguments' => array('element' => NULL),
     ),
   );
 }
@@ -168,20 +168,26 @@ function theme_sagepayapi_form_order_review(&$elements) {
  *
  * @ingroup themeable
  */
-function theme_sagepayapi_admin_amounts(&$elements) {
-// firep(element_children($elements));
+function theme_sagepayapi_admin_amounts(&$element) {
   $output = '<div id="sagepayapi-admin-amounts">';
-
+  // Table header
   $header = array(t('Application Fee'), t('Deposit Fee'));
   $rows = array();
+  $flip = array();
 
-  foreach (element_children($elements) as $key) {
-    // sagepayapi_form_app_AUD
-    // sagepayapi_form_dep_AUD
-    $row = array();
+  // Flip the 2d array matrix from across to down
+  foreach (element_children($element) as $col) {
+    foreach (element_children($element[$col]) as $row) {
+      $flip[$row][$col] = drupal_render($element[$col][$row]);
+    }
+  }
+
+  // Create table rows
+  foreach ($flip as $row) {
     $rows[] = $row;
   }
 
+  // Create the table
   $output .= theme('table', $header, $rows);
   $output .= '</div>';
   return $output;
