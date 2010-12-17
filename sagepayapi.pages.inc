@@ -325,19 +325,64 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
       '#tree' => TRUE,
       '#theme' => 'sagepayapi_form_order_review',
     );
-    $form['review']['firstname'] = array('#title' => t('First name'), '#value' => $order['BillingFirstnames']);
-    $form['review']['surname'] = array('#title' => t('Last name'), '#value' => $order['BillingSurname']);
-    $form['review']['address1'] = array('#title' => t('Street Address (Line 1)'), '#value' => $order['BillingAddress1']);
+
+    $form['review']['firstname'] = array(
+      '#type' => 'item',
+      '#title' => t('First name'),
+      '#markup' => $order['BillingFirstnames'],
+    );
+
+    $form['review']['surname'] = array(
+      '#type' => 'item',
+      '#title' => t('Last name'),
+      '#markup' => $order['BillingSurname'],
+    );
+
+    $form['review']['address1'] = array(
+      '#type' => 'item',
+      '#title' => t('Street Address (Line 1)'),
+      '#markup' => $order['BillingAddress1'],
+    );
+
     if ($billingaddress2) {
-      $form['review']['address2'] = array('#title' => t('Street Address (Line 2)'), '#value' => $billingaddress2);
+      $form['review']['address2'] = array(
+        '#type' => 'item',
+        '#title' => t('Street Address (Line 2)'),
+        '#markup' => $billingaddress,
+      );
     }
-    $form['review']['city'] = array('#title' => t('City'), '#value' => $order['BillingCity']);
-    $form['review']['postcode'] = array('#title' => t('Postal/ZIP Code'), '#value' => $order['BillingPostCode']);
-    $form['review']['country'] = array('#title' => t('Country'), '#value' => $billingcountry);
+
+    $form['review']['city'] = array(
+      '#type' => 'item',
+      '#title' => t('City'),
+      '#markup' => $order['BillingCity'],
+    );
+
+    $form['review']['postcode'] = array(
+      '#type' => 'item',
+      '#title' => t('Postal/ZIP Code'),
+      '#markup' => $order['BillingPostCode'],
+    );
+
+    $form['review']['country'] = array(
+      '#type' => 'item',
+      '#title' => t('Country'),
+      '#markup' => $billingcountry,
+    );
+
     if ($billingstate) {
-      $form['review']['state'] = array('#title' => t('State'), '#value' => $billingstate);
+      $form['review']['state'] = array(
+        '#type' => 'item',
+        '#title' => t('State'),
+        '#markup' => $billingstate,
+      );
     }
-    $form['review']['basket'] = array('#title' => $description, '#value' => $cur_code . " " . $currency['symbol'] . $order['Amount']);
+
+    $form['review']['basket'] = array(
+      '#type' => 'item',
+      '#title' => $description,
+      '#markup' => $cur_code . " " . $currency['symbol'] . $order['Amount'],
+    );
 
     // Create the four hidden form fields required by Sage Pay Form
     $hidden_fields = array(

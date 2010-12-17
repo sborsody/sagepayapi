@@ -1,5 +1,4 @@
 <?php
-
 // $Id$
 
 /**
@@ -9,9 +8,9 @@
 /**
  * Denotes URLs for the Sage Pay Form Test, Live, and Simulator servers
  */
-define(SAGEPAYAPI_FORM_SIMULATOR_URL, 'https://test.sagepay.com/simulator/vspformgateway.asp');
-define(SAGEPAYAPI_FORM_TEST_URL, 'https://test.sagepay.com/gateway/service/vspform-register.vsp');
-define(SAGEPAYAPI_FORM_LIVE_URL, 'https://live.sagepay.com/gateway/service/vspform-register.vsp');
+define('SAGEPAYAPI_FORM_SIMULATOR_URL', 'https://test.sagepay.com/simulator/vspformgateway.asp');
+define('SAGEPAYAPI_FORM_TEST_URL', 'https://test.sagepay.com/gateway/service/vspform-register.vsp');
+define('SAGEPAYAPI_FORM_LIVE_URL', 'https://live.sagepay.com/gateway/service/vspform-register.vsp');
 
 /**
  * Denotes whether debugging is on or off
@@ -24,7 +23,12 @@ $debug = variable_get('sagepayapi_debug', 'FALSE');
  * Implements hook_perm()
  */
 function sagepayapi_perm() {
-  return array('administer sagepayapi');
+  return array(
+    'administer sagepayapi' => array(
+      'title' => t('Administer Sage Pay API settings'),
+      'description' => t('Set vendor, XOR password, and other API options.'),
+    ),
+  );
 }
 
 /**
@@ -32,7 +36,7 @@ function sagepayapi_perm() {
  */
 function sagepayapi_menu() {
   // Administrative settings page
-  $items['admin/settings/sagepayapi'] = array(
+  $items['admin/config/sagepayapi'] = array(
     'title' => 'Sagepay API Settings',
     'description' => 'Helper functions for hooking anything Drupal to Sagepay',
     'page callback' => 'drupal_get_form',
@@ -85,10 +89,10 @@ function sagepayapi_menu() {
 function sagepayapi_theme() {
   return array(
     'sagepayapi_form_order_form' => array(
-      'arguments' => array('form' => NULL)
+      'render element' => 'form',
     ),
     'sagepayapi_form_order_review' => array(
-      'arguments' => array('elements' => NULL)
+      'render element' => 'elements',
     ),
   );
 }
