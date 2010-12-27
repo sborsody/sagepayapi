@@ -109,16 +109,16 @@ function theme_sagepayapi_form_order_form($form) {
   // Page one of the form
   if ($form['billing']) {
     $output .= '<p>';
-    switch ($form['order']['Description']['#value']) {
-      case t('Program Deposit'):
+    switch ($form['order']['key']['#value']) {
+      case 'deposit':
         $output .= t("After entering your billing information below you will be automatically directed to our secure online payment page.");
         break;
-      case t('Program Balance (Enter amount below)'):
+      case 'balance':
         $output .= t("After entering your billing information below you will be automatically directed to our secure online payment page.");
         break;
-      case t('Internship Application'):
+      case 'application':
       default:
-        $output .= t("Please be aware that in order to complete your online application process you need to submit the required processing fee (&pound;50/US$75/AU$100/&#8364;65).  After entering your billing information below you will be automatically directed to our secure online payment page.");
+        $output .= t("Please be aware that in order to complete your online application process you need to submit the required processing fee.  After entering your billing information below you will be automatically directed to our secure online payment page.");
         break;
     }
     $output .= '</p>';
@@ -159,7 +159,6 @@ function theme_sagepayapi_form_order_review(&$elements) {
 
 /**
  * Returns HTML for the Sage Pay API admin settings amounts fieldset
- * @todo MAKE THIS PRETTY
  *
  * @param &$elements
  *   An associative array containing:

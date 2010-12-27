@@ -215,7 +215,6 @@ function sagepayapi_admin_settings_form_validate($form, &$form_state) {
  */
 function sagepayapi_form_order_form($form_state, $req = NULL) {
   // Set up fee schedule
-  // @todo make amounts configurable
   $amounts = variable_get('sagepayapi_amounts', array());
   $fees = array(
     'APP' => array(
@@ -229,12 +228,12 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
       '#amounts' => $amounts['DEP'],
     ),
     'OTH' => array(
-      '#name' => t('Program Balance (Enter amount below)'),
+      '#name' => t('Program Balance'),
       '#url' => 'balance',
       // No amounts because this will be textfield
     ),
   );
-  $request = check_plain($req); // This is important! @todo test that someone can't type something funny in the url
+  $request = check_plain($req); // This is important!
   $allowed_requests = array();
   $fee_options = array();
   // Figure out what page argument strings are allowed and what their friendly names are
@@ -257,6 +256,7 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
   $valid_currencies = variable_get('sagepayapi_currencies', '');
   foreach ($valid_currencies as $cur) {
     $cur_options[$cur] = $currencies[$cur]['name'];
+    $cur_symbols[$cur] = $currencies[$cur]['symbol'];
   }
 
   // Page two of this form
@@ -267,13 +267,11 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     // Build order info for Sage Pay
     $billingcountry = check_plain($values['BillingCountry']);
     $billingaddress2 = check_plain($values['BillingAddress2']);
-      // @todo fix this
     $cur_code = check_plain($values['Currency']);
-    $currency = _sagepayapi_get_currency($cur_code);
 
     $order = array(
       'Description' => $description,
-      'Currency' => check_plain($values['Currency']),
+      'Currency' => $cur_code,
       'BillingSurname' => check_plain($values['BillingSurname']),
       'BillingFirstnames' => check_plain($values['BillingFirstnames']),
       'BillingAddress1' => check_plain($values['BillingAddress1']),
@@ -296,12 +294,12 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
         $order['Amount'] = check_plain($values['UserAmount']);
       }
       else {
-        $order['Amount'] = $fees[$allowed_requests[$request]]['#amounts'][$order['Currency']];
+        $order['Amount'] = $fees[$allowed_requests[$request]]['#amounts'][$cur_code];
       }
     }
     // Default to APP
     else {
-        $order['Amount'] = $fees['APP']['#amounts'][$order['Currency']];
+        $order['Amount'] = $fees['APP']['#amounts'][$cur_code];
     }
 
     // Only set State if country is US
@@ -361,7 +359,7 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     if ($billingstate) {
       $form['review']['state'] = array('#title' => t('State'), '#value' => $billingstate);
     }
-    $form['review']['basket'] = array('#title' => $description, '#value' => $cur_code . " " . $currency['symbol'] . $order['Amount']);
+    $form['review']['basket'] = array('#title' => $description, '#value' => $cur_code . " " . $cur_symbols[$cur_code] . $order['Amount']);
 
     // Create the four hidden form fields required by Sage Pay Form
     $hidden_fields = array(
@@ -382,7 +380,7 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
       '#value' => variable_get('sagepayapi_form_submit_string', t('Pay Now')),
     );
 
-    // @todo we should probably unset the saved values from page one here. does this do anything?
+    // we should probably unset the saved values from page one here. @todo does this do anything useful?
     unset($form_state['storage']['page_two']);
     unset($form_state['storage']['page_one_values']);
     return $form;
@@ -454,26 +452,48 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     '#title' => t('Fee information'),
   );
 
+  // Fee description, default to APP
+  // £50/US$75/AU$100/€65
+  foreach ($amounts['APP'] as $cur => $amt) {
+    $amts[] = $cur . ' ' . $cur_symbols[$cur] . $amt;
+  }
+  $amt_desc = implode(' / ', $amts);
+  $form['order']['Description'] = array(
+    '#value' => $description . '<br />(' . $amt_desc . ')',
+    '#prefix' => '<span>',
+    '#suffix' => '</span>',
+  );
+
+  if ($request && $allowed) {
+    if ($request == 'deposit') {
+      $amts = array();
+      foreach ($amounts['DEP'] as $cur => $amt) {
+        $amts[] = $cur . ' ' . $cur_symbols[$cur] . $amt;
+      }
+      $amt_desc = implode(' / ', $amts);
+      $form['order']['Description']['#value'] = $description . '<br />(' . $amt_desc . ')';
+      $form['order']['key'] = array('#type' => 'hidden', '#value' => $request);
+    }
+    else if ($request == 'balance') {
+      $form['order']['Description']['#value'] = $description . ' (Enter amount below)';
+      // Show the amount textfield for balance payoff requests
+      $form['order']['UserAmount'] = array(
+        '#type' => 'textfield',
+        '#title' => t('Enter amount'),
+        '#description' => t('Please enter a number without the currency symbol for the remaining program balance. Examples: 23.00 or 23,00'),
+      );
+      $form['order']['key'] = array('#type' => 'hidden', '#value' => $request);
+    }
+  }
+
   $form['order']['Currency'] = array(
     '#type' => 'select',
     '#title' => t('Currency'),
     '#required' => TRUE,
     '#default_value' => 'GBP',
     '#options' => $cur_options, // @todo detect default from billing country?
+    '#description' => t('Select the currency in which you wish to pay.'),
   );
-
-  // Default to default description
-  $form['order']['Description'] = array(
-    '#value' => $description,
-  );
-  // Show the amount textfield for balance payoff requests
-  if (isset($request) && $request == 'balance') { // @todo replace with constant
-    $form['order']['UserAmount'] = array(
-      '#type' => 'textfield',
-      '#title' => t('Enter amount'),
-      '#description' => t('Please enter a number without the currency symbol for the remaining program balance. Example: 23.00'),
-    );
-  }
 
   $form['next'] = array(
     '#type' => 'submit',
