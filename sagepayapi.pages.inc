@@ -218,7 +218,7 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
   $amounts = variable_get('sagepayapi_amounts', array());
   $fees = array(
     'APP' => array(
-      '#name' => t('Internship Application'),
+      '#name' => t('Application Processing Fee'),
       '#url' => 'application', // @todo make this a constant?
       '#amounts' => $amounts['APP'],
     ),
