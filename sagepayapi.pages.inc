@@ -218,7 +218,7 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
   $amounts = variable_get('sagepayapi_amounts', array());
   $fees = array(
     'APP' => array(
-      '#name' => t('Application Processing Fee'),
+      '#name' => t('Application Fee'),
       '#url' => 'application', // @todo make this a constant?
       '#amounts' => $amounts['APP'],
     ),
@@ -268,19 +268,23 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     $billingcountry = check_plain($values['BillingCountry']);
     $billingaddress2 = check_plain($values['BillingAddress2']);
     $cur_code = check_plain($values['Currency']);
+    $billing_surname = check_plain($values['BillingSurname']);
+    $billing_firstnames = check_plain($values['BillingFirstnames']);
+    $applicant_surname = check_plain($values['DeliveryFirstnames']);
+    $applicant_firstnames = check_plain($values['DeliverySurname']);
 
     $order = array(
       'Description' => $description,
       'Currency' => $cur_code,
-      'BillingSurname' => check_plain($values['BillingSurname']),
-      'BillingFirstnames' => check_plain($values['BillingFirstnames']),
+      'BillingSurname' => $billing_surname,
+      'BillingFirstnames' => $billing_firstnames,
       'BillingAddress1' => check_plain($values['BillingAddress1']),
       'BillingCity' => check_plain($values['BillingCity']),
       'BillingPostCode' => check_plain($values['BillingPostCode']),
       'BillingCountry' => $billingcountry,
       'BillingPhone' => check_plain($values['BillingPhone']),
-      'DeliverySurname' => check_plain($values['BillingSurname']),
-      'DeliveryFirstnames' => check_plain($values['BillingFirstnames']),
+      'DeliverySurname' => isset($applicant_surname) ? $applicant_surname : $billing_surname,
+      'DeliveryFirstnames' => isset($applicant_firstnames) ? $applicant_firstnames : $billing_firstnames,
       'DeliveryAddress1' => check_plain($values['BillingAddress1']),
       'DeliveryCity' => check_plain($values['BillingCity']),
       'DeliveryPostCode' => check_plain($values['BillingPostCode']),
@@ -347,8 +351,9 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
       '#tree' => TRUE,
       '#theme' => 'sagepayapi_form_order_review',
     );
-    $form['review']['firstname'] = array('#title' => t('First name'), '#value' => $order['BillingFirstnames']);
-    $form['review']['surname'] = array('#title' => t('Last name'), '#value' => $order['BillingSurname']);
+    $form['review']['firstname'] = array('#title' => t('Billing first name'), '#value' => $order['BillingFirstnames']);
+    $form['review']['surname'] = array('#title' => t('Billing last name'), '#value' => $order['BillingSurname']);
+    $form['review']['applicant'] = array('#title' => t('For applicant'), '#value' => $applicant_firstnames . ' ' . $applicant_surname;
     $form['review']['address1'] = array('#title' => t('Street Address (Line 1)'), '#value' => $order['BillingAddress1']);
     if ($billingaddress2) {
       $form['review']['address2'] = array('#title' => t('Street Address (Line 2)'), '#value' => $billingaddress2);
@@ -393,30 +398,48 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     '#description' => t('Please enter the first name of the person to be billed.'),
     '#required' => TRUE,
   );
+
   $form['BillingSurname'] = array(
     '#type' => 'textfield',
     '#title' => t('Last name'),
     '#description' => t('Please enter the last name of the person to be billed.'),
     '#required' => TRUE,
   );
+
+  $form['DeliveryFirstnames'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Applicant first name'),
+    '#description' => t('Please enter the first name of the applicant if different from the person to be billed.'),
+  );
+
+  $form['DeliverySurname'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Applicant last name'),
+    '#description' => t('Please enter the last name of the applicant if different from the person to be billed.'),
+  );
+
   $form['billing'] = array(
     '#type' => 'fieldset',
     '#title' => t('Billing information'),
   );
+
   $form['billing']['BillingAddress1'] = array(
     '#type' => 'textfield',
     '#title' => t('Street address (Line 1)'),
     '#required' => TRUE,
   );
+
   $form['billing']['BillingAddress2'] = array(
     '#type' => 'textfield',
     '#title' => t('Street address (Line 2)'),
   );
+
   $form['billing']['BillingCity'] = array(
     '#type' => 'textfield',
     '#title' => t('City'),
     '#required' => TRUE,
   );
+
   $form['billing']['BillingPostCode'] = array(
     '#type' => 'textfield',
     '#title' => t('Postal/ZIP Code'),
@@ -430,6 +453,7 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     '#default_value' => 'GB',
     '#options' => _sagepayapi_get_countries(),
   );
+
   ctools_include('dependent');
   $form['billing']['BillingState'] = array(
     '#type' => 'select',

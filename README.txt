@@ -3,7 +3,11 @@ Sage Pay API for Drupal 6
 
 This module provides an interface to Sage Pay for Drupal.
 
-Currently only Sage Pay Form is implemented.
+Currently only Sage Pay Form is implemented.  This module is customized for a particular client,
+but I plan to expand it into a true API.
+
+6.x-1.0
+  - Final customer-specific release (hopefully)
 
 6.x-1.0-beta4
   - Added configurable amounts
