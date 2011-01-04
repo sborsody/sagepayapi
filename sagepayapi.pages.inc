@@ -270,8 +270,8 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     $cur_code = check_plain($values['Currency']);
     $billing_surname = check_plain($values['BillingSurname']);
     $billing_firstnames = check_plain($values['BillingFirstnames']);
-    $applicant_surname = check_plain($values['DeliveryFirstnames']);
-    $applicant_firstnames = check_plain($values['DeliverySurname']);
+    $applicant_surname = check_plain($values['DeliverySurname']);
+    $applicant_firstnames = check_plain($values['DeliveryFirstnames']);
 
     $order = array(
       'Description' => $description,
@@ -353,7 +353,7 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     );
     $form['review']['firstname'] = array('#title' => t('Billing first name'), '#value' => $order['BillingFirstnames']);
     $form['review']['surname'] = array('#title' => t('Billing last name'), '#value' => $order['BillingSurname']);
-    $form['review']['applicant'] = array('#title' => t('For applicant'), '#value' => $applicant_firstnames . ' ' . $applicant_surname;
+    $form['review']['applicant'] = array('#title' => t('For applicant'), '#value' => $applicant_firstnames . ' ' . $applicant_surname);
     $form['review']['address1'] = array('#title' => t('Street Address (Line 1)'), '#value' => $order['BillingAddress1']);
     if ($billingaddress2) {
       $form['review']['address2'] = array('#title' => t('Street Address (Line 2)'), '#value' => $billingaddress2);
