@@ -289,6 +289,9 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
       'DeliveryCity' => check_plain($values['BillingCity']),
       'DeliveryPostCode' => check_plain($values['BillingPostCode']),
       'DeliveryCountry' => $billingcountry,
+      'SendEMail' => variable_get('sagepayapi_send_email', ''),
+      'CustomerEMail' => check_plain($values['CustomerEMail']),
+      'CustomerName' => $applicant_firstnames . ' ' . $applicant_surname,
     );
 
     // Pick correct amount for application fee based upon selected currency.
@@ -409,7 +412,7 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     '#maxlength' => 80,
   );
   
-  $form['applicant']['DeliveryEmail'] = array(
+  $form['applicant']['CustomerEMail'] = array(
     '#type' => 'textfield',
     '#title' => t('Email address'),
     // @todo validate an email address format
@@ -564,6 +567,9 @@ function sagepayapi_form_order_form_validate($form, &$form_state) {
       if (!is_numeric($ua) && !preg_match($pattern, $ua)) {
         form_set_error('UserAmount', t('Please enter an amount that is formatted correctly for this currency.'));
       }
+    }
+    if (!valid_email_address($form_state['values']['CustomerEMail'])) {
+      form_set_error('CustomerEMail', t('Please check that you have entered a valid email address.'));
     }
   }
 }
