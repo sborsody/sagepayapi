@@ -218,17 +218,17 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
   $amounts = variable_get('sagepayapi_amounts', array());
   $fees = array(
     'APP' => array(
-      '#name' => t('Application Fee'),
+      '#name' => t('Academy Application Processing Fee'),
       '#url' => 'application', // @todo make this a constant?
       '#amounts' => $amounts['APP'],
     ),
     'DEP' => array(
-      '#name' => t('Program Deposit'),
+      '#name' => t('Academy Program Deposit'),
       '#url' => 'deposit',
       '#amounts' => $amounts['DEP'],
     ),
     'OTH' => array(
-      '#name' => t('Program Balance'),
+      '#name' => t('Academy Program Balance'),
       '#url' => 'balance',
       // No amounts because this will be textfield
     ),
@@ -392,58 +392,76 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
   }
 
   // Page one of this form
-  $form['BillingFirstnames'] = array(
+  $form['applicant'] = array(
+    '#type' => 'fieldset',
+    '#description' => '<h3>' . t('Please confirm applicant information.') . '</h3>',
+  );
+
+  $form['applicant']['DeliveryFirstnames'] = array(
     '#type' => 'textfield',
     '#title' => t('First name'),
-    '#description' => t('Please enter the first name of the person to be billed.'),
-    '#required' => TRUE,
+    '#maxlength' => 40,
   );
 
-  $form['BillingSurname'] = array(
+  $form['applicant']['DeliverySurname'] = array(
     '#type' => 'textfield',
     '#title' => t('Last name'),
-    '#description' => t('Please enter the last name of the person to be billed.'),
-    '#required' => TRUE,
+    '#maxlength' => 80,
   );
-
-  $form['DeliveryFirstnames'] = array(
+  
+  $form['applicant']['DeliveryEmail'] = array(
     '#type' => 'textfield',
-    '#title' => t('Applicant first name'),
-    '#description' => t('Please enter the first name of the applicant if different from the person to be billed.'),
-  );
-
-  $form['DeliverySurname'] = array(
-    '#type' => 'textfield',
-    '#title' => t('Applicant last name'),
-    '#description' => t('Please enter the last name of the applicant if different from the person to be billed.'),
+    '#title' => t('Email address'),
+    // @todo validate an email address format
   );
 
   $form['billing'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Billing information'),
+    '#description' => '<h3>' . t('Please confirm billing information.</h3>') . '</h3>',
+  );
+
+  $form['billing']['BillingFirstnames'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Cardholder first name'),
+    '#description' => t('As it appears on the card'),
+    '#required' => TRUE,
+    '#maxlength' => 40,
+  );
+
+  $form['billing']['BillingSurname'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Cardholder last name'),
+    '#description' => t('As it appears on the card'),
+    '#required' => TRUE,
+    '#maxlength' => 40,
   );
 
   $form['billing']['BillingAddress1'] = array(
     '#type' => 'textfield',
     '#title' => t('Street address (Line 1)'),
+    '#description' => t('Cardholder billing address'),
     '#required' => TRUE,
+    '#maxlength' => 80,
   );
 
   $form['billing']['BillingAddress2'] = array(
     '#type' => 'textfield',
     '#title' => t('Street address (Line 2)'),
+    '#maxlength' => 80,
   );
 
   $form['billing']['BillingCity'] = array(
     '#type' => 'textfield',
     '#title' => t('City'),
     '#required' => TRUE,
+    '#maxlength' => 80,
   );
 
   $form['billing']['BillingPostCode'] = array(
     '#type' => 'textfield',
     '#title' => t('Postal/ZIP Code'),
     '#required' => TRUE,
+    '#maxlength' => 80,
   );
 
   $form['billing']['BillingCountry'] = array(
@@ -469,11 +487,12 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     '#type' => 'textfield',
     '#title' => t('Phone number'),
     '#required' => TRUE,
+    '#maxlength' => 40,
   );
 
   $form['order'] = array(
     '#type' => 'fieldset',
-    '#title' => t('Fee information'),
+    '#description' => '<h3>' . t('Please confirm payment details.') . '</h3>',
   );
 
   // Fee description, default to APP
@@ -483,9 +502,9 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
   }
   $amt_desc = implode(' / ', $amts);
   $form['order']['Description'] = array(
+    '#title' => t('Fee information'),
+    '#type' => 'item',
     '#value' => $description . '<br />(' . $amt_desc . ')',
-    '#prefix' => '<span>',
-    '#suffix' => '</span>',
   );
 
   if ($request && $allowed) {
@@ -499,12 +518,13 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
       $form['order']['key'] = array('#type' => 'hidden', '#value' => $request);
     }
     else if ($request == 'balance') {
-      $form['order']['Description']['#value'] = $description . ' (Enter amount below)';
+      $form['order']['Description']['#value'] = $description;
       // Show the amount textfield for balance payoff requests
       $form['order']['UserAmount'] = array(
         '#type' => 'textfield',
         '#title' => t('Enter amount'),
-        '#description' => t('Please enter a number without the currency symbol for the remaining program balance. Examples: 23.00 or 23,00'),
+        '#description' => t('Please enter amount without currency symbol, e.g. 23.00 instead of $23.00'),
+        '#maxlength' => 10,
       );
       $form['order']['key'] = array('#type' => 'hidden', '#value' => $request);
     }
@@ -516,7 +536,7 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     '#required' => TRUE,
     '#default_value' => 'GBP',
     '#options' => $cur_options, // @todo detect default from billing country?
-    '#description' => t('Select the currency in which you wish to pay.'),
+    '#description' => t('Select the currency in which you wish to make a payment.'),
   );
 
   $form['next'] = array(

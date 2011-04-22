@@ -118,11 +118,10 @@ function theme_sagepayapi_form_order_form($form) {
         break;
       case 'application':
       default:
-        $output .= t("Please be aware that in order to complete your online application process you need to submit the required processing fee.  After entering your billing information below you will be automatically directed to our secure online payment page.");
+        $output .= t("After entering your billing information below you will be automatically directed to our secure online payment page.");
         break;
     }
     $output .= '</p>';
-    $output .= '<h3>' . t('Please enter your billing information.') . '</h3>';
   }
   // Page two of the form
   if ($form['Crypt']) {
