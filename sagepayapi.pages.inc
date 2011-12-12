@@ -74,36 +74,6 @@ function sagepayapi_admin_settings_form() {
     '#options' => $cur_options,
   );
 
-  $form['sagepayapi_amounts'] = array(
-    '#type' => 'fieldset',
-    '#title' => t('Amounts'),
-    '#description' => t('Amounts for application fee and deposit fee in each currency'),
-    '#tree' => TRUE,
-    '#theme' => 'sagepayapi_admin_amounts',
-  );
-
-
-  foreach ($set_curs as $key => $value) {
-      $arr = array(
-      '#type' => 'textfield',
-      '#size' => 6,
-    );
-
-    $app = t('Application Fee');
-    $dep = t('Deposit Fee');
-    $def_var = variable_get('sagepayapi_amounts', array());
-
-    $form['sagepayapi_amounts']['APP'][$key] = $arr;
-    $form['sagepayapi_amounts']['APP'][$key]['#default_value'] = $def_var['APP'][$key];
-    $form['sagepayapi_amounts']['APP'][$key]['#field_prefix'] = $key . ' ' . $currencies[$key]['symbol'];
-    // $form['sagepayapi_amounts']['APP'][$key]['#prefix'] = $app;
-
-    $form['sagepayapi_amounts']['DEP'][$key] = $arr;
-    $form['sagepayapi_amounts']['DEP'][$key]['#default_value'] = $def_var['DEP'][$key];
-    $form['sagepayapi_amounts']['DEP'][$key]['#field_prefix'] = $key . ' ' . $currencies[$key]['symbol'];
-    // $form['sagepayapi_amounts']['DEP'][$key]['#prefix'] = $dep;
-  }
-
   $form['sagepayapi_transaction_type'] = array(
     '#type' => 'radios',
     '#title' => t('Transaction type'),
@@ -152,7 +122,7 @@ function sagepayapi_admin_settings_form() {
     '#type' => 'checkbox',
     '#title' => t('Watchdog debugging'),
     '#description' => t("Check this in order to send debugging information to Drupal's watchdog"),
-    '#default_value' => variable_get('sagepayapi_debug', 'FALSE'),
+    '#default_value' => variable_get('sagepayapi_debug', ''),
   );
 
   $form['sagepayapi_optional_settings']['sagepayapi_form_submit_string'] = array(
@@ -213,45 +183,7 @@ function sagepayapi_admin_settings_form_validate($form, &$form_state) {
  * @see sagepayapi_form_order_form_submit()
  * @ingroup forms
  */
-function sagepayapi_form_order_form($form_state, $req = NULL) {
-  // Set up fee schedule
-  $amounts = variable_get('sagepayapi_amounts', array());
-  $fees = array(
-    'APP' => array(
-      '#name' => t('Academy Application Processing Fee'),
-      '#url' => 'application', // @todo make this a constant?
-      '#amounts' => $amounts['APP'],
-    ),
-    'DEP' => array(
-      '#name' => t('Academy Program Deposit'),
-      '#url' => 'deposit',
-      '#amounts' => $amounts['DEP'],
-    ),
-    'OTH' => array(
-      '#name' => t('Academy Program Balance'),
-      '#url' => 'balance',
-      // No amounts because this will be textfield
-    ),
-  );
-  $request = check_plain($req); // This is important!
-  $allowed_requests = array();
-  $fee_options = array();
-  // Figure out what page argument strings are allowed and what their friendly names are
-  foreach ($fees as $key => $value) {
-    $allowed_requests[$value['#url']] = $key;
-    $fee_options[$key] = $value['#name'];
-  }
-  // Check if the page argument string is allowed
-  $allowed = array_key_exists($request, $allowed_requests);
-  // Set the correct request name
-  if ($allowed) {
-    $description = $fee_options[$allowed_requests[$request]];
-  }
-  // Default to the APP request name
-  else {
-    $description = $fee_options['APP'];
-  }
-
+function sagepayapi_form_order_form($form_state) {
   $currencies = _sagepayapi_get_currencies();
   $valid_currencies = variable_get('sagepayapi_currencies', '');
   foreach ($valid_currencies as $cur) {
@@ -265,6 +197,7 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     // $order = sagepayapi_dummy_order();
     $values = $form_state['storage']['page_one_values'];
     // Build order info for Sage Pay
+    $description = check_plain($values['Description']);
     $billingcountry = check_plain($values['BillingCountry']);
     $billingaddress2 = check_plain($values['BillingAddress2']);
     $cur_code = check_plain($values['Currency']);
@@ -294,19 +227,22 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
       'CustomerName' => $applicant_firstnames . ' ' . $applicant_surname,
     );
 
-    // Pick correct amount for application fee based upon selected currency.
-    // @todo make this configurable
-    if ($request && $allowed) {
-      if ($request == 'balance') {
-        $order['Amount'] = check_plain($values['UserAmount']);
-      }
-      else {
-        $order['Amount'] = $fees[$allowed_requests[$request]]['#amounts'][$cur_code];
-      }
+    /*
+     * Check if we need to add on a transaction fee
+     * IF (Payment Method = Debit Card) AND (Country = United Kingdom) AND (Payment currency = GBP)
+     * >> Charge to SagePay = “Payment Amount”
+     * If the formula above does not evaluate to TRUE
+     * >> Charge to SagePay = (“Payment Amount” x 1.035)
+    */
+    $amt = check_plain($values['UserAmount']);
+    $card_type = $values['card_type'];
+    if ($card_type == '0' && $billingcountry == 'GB' && $cur_code == 'GBP') {
+      $order['Amount'] = $amt;
     }
-    // Default to APP
     else {
-        $order['Amount'] = $fees['APP']['#amounts'][$cur_code];
+      $tx_fee = $amt * 0.035;
+      $total_amt = $amt + $tx_fee;
+      $order['Amount'] = $total_amt;
     }
 
     // Only set State if country is US
@@ -324,7 +260,7 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     $vendortxcode = sagepayapi_get_vendortxcode();
 
     // Build a success and failure url
-    $returnurl = url('sagepayapi/thankyou', array('absolute' => TRUE));
+    $returnurl = url('online-payment/thankyou', array('absolute' => TRUE)); // @todo make this a constant with hook_menu
     $order['SuccessURL'] = $returnurl;
     $order['FailureURL'] = $returnurl;
 
@@ -367,7 +303,18 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     if ($billingstate) {
       $form['review']['state'] = array('#title' => t('State'), '#value' => $billingstate);
     }
-    $form['review']['basket'] = array('#title' => $description, '#value' => $cur_code . " " . $cur_symbols[$cur_code] . $order['Amount']);
+    $form['review']['basket'] = array('#title' => $description, '#value' => $cur_code . " " . $cur_symbols[$cur_code] . $amt);
+    if ($tx_fee) {
+      $form['review']['tx_fee'] = array('#title' => t('Transaction Fee'), '#value' => $cur_code . " " . $cur_symbols[$cur_code] . $tx_fee);
+      $form['review']['total'] = array('#title' => t('Total Transaction Amount'), '#value' => $cur_code . " " . $cur_symbols[$cur_code] . $order['Amount']);
+      // Format optional Sagepay Basket so GVI knows this was a tx fee transaction
+      /*
+      2
+      :Desc:::::$amt
+      :Transaction Fee:::::$tx_fee
+      */
+      $order['Basket'] = '2:' . $description .':::::' . $amt . ':Transaction Fee:::::' . $tx_fee;
+    }
 
     // Create the four hidden form fields required by Sage Pay Form
     $hidden_fields = array(
@@ -411,7 +358,7 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     '#title' => t('Last name'),
     '#maxlength' => 80,
   );
-  
+
   $form['applicant']['CustomerEMail'] = array(
     '#type' => 'textfield',
     '#title' => t('Email address'),
@@ -498,40 +445,24 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     '#description' => '<h3>' . t('Please confirm payment details.') . '</h3>',
   );
 
-  // Fee description, default to APP
-  // £50/US$75/AU$100/€65
-  foreach ($amounts['APP'] as $cur => $amt) {
-    $amts[] = $cur . ' ' . $cur_symbols[$cur] . $amt;
-  }
-  $amt_desc = implode(' / ', $amts);
+  // Fee description
   $form['order']['Description'] = array(
     '#title' => t('Fee information'),
-    '#type' => 'item',
-    '#value' => $description . '<br />(' . $amt_desc . ')',
+    '#type' => 'select',
+    '#options' => array(
+      'Deposit' => 'Deposit',
+      'Installment 1' => 'Installment 1',
+      'Installment 2' => 'Installment 2',
+      'Other Amount' => 'Other Amount',
+    ),
   );
-
-  if ($request && $allowed) {
-    if ($request == 'deposit') {
-      $amts = array();
-      foreach ($amounts['DEP'] as $cur => $amt) {
-        $amts[] = $cur . ' ' . $cur_symbols[$cur] . $amt;
-      }
-      $amt_desc = implode(' / ', $amts);
-      $form['order']['Description']['#value'] = $description . '<br />(' . $amt_desc . ')';
-      $form['order']['key'] = array('#type' => 'hidden', '#value' => $request);
-    }
-    else if ($request == 'balance') {
-      $form['order']['Description']['#value'] = $description;
-      // Show the amount textfield for balance payoff requests
-      $form['order']['UserAmount'] = array(
-        '#type' => 'textfield',
-        '#title' => t('Enter amount'),
-        '#description' => t('Please enter amount without currency symbol, e.g. 23.00 instead of $23.00'),
-        '#maxlength' => 10,
-      );
-      $form['order']['key'] = array('#type' => 'hidden', '#value' => $request);
-    }
-  }
+  // Show the amount textfield for balance payoff requests
+  $form['order']['UserAmount'] = array(
+    '#type' => 'textfield',
+    '#title' => t('Enter amount'),
+    '#description' => t('Please enter amount without currency symbol, e.g. 23.00 instead of $23.00'),
+    '#maxlength' => 10,
+  );
 
   $form['order']['Currency'] = array(
     '#type' => 'select',
@@ -540,6 +471,20 @@ function sagepayapi_form_order_form($form_state, $req = NULL) {
     '#default_value' => 'GBP',
     '#options' => $cur_options, // @todo detect default from billing country?
     '#description' => t('Select the currency in which you wish to make a payment.'),
+  );
+
+  // Card type, desc Specify the type of card being used to determine if we add on tx fee
+  $form['order']['card_type'] = array(
+    '#type' => 'select',
+    '#title' => t('Card Type'),
+    '#required' => TRUE,
+    '#options' => array(
+      0 => t('Debit card (UK)'),
+      1 => t('Debit card (other)'),
+      2 => t('Credit card (UK)'),
+      3 => t('Credit card (other)'),
+    ),
+    '#description' => t('Select the type of card being used'),
   );
 
   $form['next'] = array(

@@ -40,8 +40,8 @@ function sagepayapi_menu() {
   );
 
   // Order page
-  $items['sagepayapi/order'] = array(
-    'title' => 'Academy Payment Processing Center',
+  $items['online-payment'] = array(
+    'title' => 'Payment Processing Center',
     'description' => 'Builds a form for submitting to Sage Pay',
     'page callback' => 'drupal_get_form',
     'page arguments' => array('sagepayapi_form_order_form'),
@@ -49,19 +49,9 @@ function sagepayapi_menu() {
     'type' => MENU_CALLBACK,
     'file' => 'sagepayapi.pages.inc',
   );
-  // Order page with arguments
-  $items['sagepayapi/order/%type'] = array(
-    'title' => 'Academy Payment Processing Center',
-    'description' => 'Builds a form with arguments for submitting to Sage Pay',
-    'page callback' => 'drupal_get_form',
-    'page arguments' => array('sagepayapi_form_order_form', 2), // @todo I think 2 can be changed to %type
-    'access arguments' => array('access content'),
-    'type' => MENU_CALLBACK,
-    'file' => 'sagepayapi.pages.inc',
-  );
 
   // Form completion page
-  $items['sagepayapi/thankyou'] = array(
+  $items['online-payment/thankyou'] = array(
     'title' => 'Complete',
     //'title callback' => 'sagepayapi_thankyou_title', // This should be dependent upon whether there is success or failure
     'description' => 'Displays success or failure of Sage Pay Form transaction',
@@ -768,6 +758,7 @@ function _sagepayapi_get_currencies() {
     'GBP' => array('name' => t('British Pound (GBP)'), 'symbol' => "&pound;", 'pattern' => '/^(\d{1,3}+(\,\d{3})*|(\d+))(\.\d{2})?$/'),
     'EUR' => array('name' => t('Euro (EUR)'), 'symbol' => "&#8364;", 'pattern' => '/^(\d{1,3}+(\.\d{3})*|(\d+))(\,\d{2})?$/'),
     'USD' => array('name' => t('U.S. Dollar (USD)'), 'symbol' => "$", 'pattern' => '/^(\d{1,3}+(\,\d{3})*|(\d+))(\.\d{2})?$/'),
+    'CAD' => array('name' => t('Canadian Dollar (CAD)'), 'symbol' => "$", 'pattern' => '/^(\d{1,3}+(\,\d{3})*|(\d+))(\.\d{2})?$/'),
   );
 }
 
