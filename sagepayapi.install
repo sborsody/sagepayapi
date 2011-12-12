@@ -1,6 +1,4 @@
 <?php
-// $Id$
-
 /**
  * @file
  * Install, uninstall, and update functions for the Sage Pay API module.

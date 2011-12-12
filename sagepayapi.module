@@ -1,7 +1,4 @@
 <?php
-
-// $Id$
-
 /**
  * This will be a module that allows anything to integrate with Sagepay Server
  */
