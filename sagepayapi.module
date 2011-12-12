@@ -15,7 +15,16 @@ define(SAGEPAYAPI_FORM_LIVE_URL, 'https://live.sagepay.com/gateway/service/vspfo
  */
 $debug = variable_get('sagepayapi_debug', 'FALSE');
 
-// @todo add hook_help()
+/**
+ * Implements hook_help().
+ */
+function sagepayapi_help($path, $arg) {
+  switch ($path) {
+    case 'admin/help#sagepayapi':
+      // Return a line-break version of the module README.txt
+      return filter_filter('process', 1, NULL, file_get_contents( dirname(__FILE__) . "/README.txt") );
+  }
+}
 
 /**
  * Implements hook_perm()
